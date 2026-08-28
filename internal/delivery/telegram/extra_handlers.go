@@ -28,8 +28,6 @@ func (b *Bot) handleProfileMenu(c tele.Context) error {
 	phone := "Kiritilmagan"
 	if u.PrimaryPhone != nil {
 		phone = *u.PrimaryPhone
-	} else if u.Phone != nil {
-		phone = *u.Phone
 	}
 
 	lang := "O'zbek"

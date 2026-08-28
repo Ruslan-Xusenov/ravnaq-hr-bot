@@ -3,7 +3,6 @@ package telegram
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/company/hrbot/internal/domain/user"
