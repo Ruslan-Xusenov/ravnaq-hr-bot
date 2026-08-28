@@ -178,13 +178,28 @@ func (b *Bot) sendMainMenu(c tele.Context, u *user.User) error {
 	btnContact := tele.ReplyButton{Text: b.i18n.Get(lang, "menu_contact")}
 	btnSettings := tele.ReplyButton{Text: b.i18n.Get(lang, "menu_settings")}
 
+	rows := [][]tele.ReplyButton{
+		{btnVacancies, btnResume},
+		{btnProfile, btnApplications},
+		{btnAbout, btnFAQ},
+		{btnContact, btnSettings},
+	}
+
+	isAdmin := false
+	for _, id := range b.adminIDs {
+		if id == u.TelegramID {
+			isAdmin = true
+			break
+		}
+	}
+
+	if isAdmin {
+		btnAdmin := tele.ReplyButton{Text: "🛠 Admin Panel"}
+		rows = append(rows, []tele.ReplyButton{btnAdmin})
+	}
+
 	markup := &tele.ReplyMarkup{
-		ReplyKeyboard: [][]tele.ReplyButton{
-			{btnVacancies, btnResume},
-			{btnProfile, btnApplications},
-			{btnAbout, btnFAQ},
-			{btnContact, btnSettings},
-		},
+		ReplyKeyboard:  rows,
 		ResizeKeyboard: true,
 	}
 

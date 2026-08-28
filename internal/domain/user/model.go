@@ -34,4 +34,12 @@ const (
 	StateResumeRegion     = "resume_region"
 	StateResumeSalary     = "resume_salary"
 	StateResumeConfirm    = "resume_confirm"
+
+	// Admin States
+	AdminStateMainMenu             = "admin_main_menu"
+	AdminStateAddVacancyTitle      = "admin_add_vacancy_title"
+	AdminStateAddVacancyLocation   = "admin_add_vacancy_location"
+	AdminStateAddVacancySalary     = "admin_add_vacancy_salary"
+	AdminStateAddVacancyDesc       = "admin_add_vacancy_desc"
+	AdminStateBroadcastMessage     = "admin_broadcast_message"
 )

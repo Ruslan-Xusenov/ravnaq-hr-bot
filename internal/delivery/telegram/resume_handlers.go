@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"strings"
 
 	"github.com/company/hrbot/internal/domain/resume"
 	"github.com/company/hrbot/internal/domain/user"
@@ -57,6 +58,15 @@ func (b *Bot) handleText(c tele.Context) error {
 
 	lang := *u.LanguageCode
 	state, _ := b.state.Get(ctx, telegramID)
+
+	// Handle Admin states and "🛠 Admin Panel" button
+	if text == "🛠 Admin Panel" {
+		return b.handleAdminMenu(c)
+	}
+
+	if strings.HasPrefix(state, "admin_") {
+		return b.handleAdminText(c, state)
+	}
 
 	// Handle Main Menu buttons
 	if state == user.StateMainMenu {
