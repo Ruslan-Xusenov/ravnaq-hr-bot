@@ -40,9 +40,15 @@ func (b *Bot) handleProfileMenu(c tele.Context) error {
 func (b *Bot) handleAbout(c tele.Context) error {
 	text := `🏢 <b>Biz haqimizda</b>
 
-Bu maxsus HR Bot bo'lib, sizga kompaniyamizdagi mavjud bo'sh ish o'rinlarini ko'rish, ularga ariza topshirish va o'z rezyumeyingizni qulay tarzda boshqarish imkonini beradi.
+Ravnaq Group — ko’chmas mulk sohasida marketing va sotuv bo’yicha to’liq siklli hamkor. Kompaniya Uysotpro nomi ostida faoliyatini boshlab, qisqa vaqt ichida Samarqand, Buxoro, Termiz va Surxondaryo bozorlarida o’z o’rnini egalladi. Bugun 5 ta quruvchi bilan hamkorlikda 1000 dan ortiq xonadon sotildi. Biz uchun eng katta yutuq — hamkorlarimizning ishonchi va uzoq muddatli munosabatlarimizdir.
 
-Biz bilan birga o'z karyerangizni quring! 🚀`
+Biz o’zimiz uchun aniq missiyani tanladik — quruvchini marketing va sotuv tashvishidan butunlay xalos qilish. Siz faqat qurilish sifati va muddatiga e’tibor bering, qolganini biz o’z zimmamizga olamiz.
+
+Bizning kuchli tomonlarimiz — bir tizimga bog’langan marketing va sotuv: professional media-prodakshn, maqsadli reklama va lid generatsiya, zapusk texnologiyasi, CRM va avtomatlashtirish, hamda o’z akademiyamizda tayyorlangan sotuvchilardan iborat tayyor sotuv bo’limi. Aynan shu yaxlitlik natijani tasodifga emas, tizimga bog’laydi.
+
+Biz hamkorlarimiz bilan bitta qayiqdamiz: oldindan hech qanday to’lov talab qilinmaydi. Biz faqat uy sotilib, mablag’ hamkorimiz kassasiga tushganidan so’ng komissiya olamiz. Chunki natijaga ishongan hamkor riskni ham o’zi ko’taradi.
+
+Biz haqimizda ko’proq ma’lumotni saytimiz orqali bilib oling.`
 	return c.Send(text, tele.ModeHTML)
 }
 
