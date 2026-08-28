@@ -189,7 +189,7 @@ func (b *Bot) handleAdminViewApplications(c tele.Context) error {
 			title, candidate, experience, address, phones, app.SubmittedAt.Format("02-Jan-2006 15:04"), app.Status)
 		
 		if res != nil && res.PhotoFileID != nil && *res.PhotoFileID != "" {
-			photo := &tele.Photo{File: tele.FromFileID(*res.PhotoFileID), Caption: text}
+			photo := &tele.Photo{File: tele.File{FileID: *res.PhotoFileID}, Caption: text}
 			c.Send(photo)
 		} else {
 			c.Send(text)

@@ -21,8 +21,6 @@ func (b *Bot) handleResumeMenu(c tele.Context) error {
 		return c.Send("Texnik xatolik")
 	}
 
-	lang := *u.LanguageCode
-
 	// Check if resume exists
 	res, err := b.resumeRepo.GetCurrentByUserID(ctx, u.ID)
 	if err != nil {
@@ -167,7 +165,7 @@ func (b *Bot) handleText(c tele.Context) error {
 		}
 
 		if photoID != "" {
-			photo := &tele.Photo{File: tele.FromFileID(photoID), Caption: preview}
+			photo := &tele.Photo{File: tele.File{FileID: photoID}, Caption: preview}
 			return c.Send(photo, markup)
 		}
 		return c.Send(preview, markup)
