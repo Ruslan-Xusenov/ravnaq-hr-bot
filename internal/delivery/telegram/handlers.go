@@ -97,6 +97,11 @@ func (b *Bot) handleLanguageCallback(c tele.Context) error {
 	// Acknowledge callback
 	c.Respond()
 
+	// If user already has a phone number, send them to main menu instead
+	if u.PrimaryPhone != nil && *u.PrimaryPhone != "" {
+		return b.sendMainMenu(c, u)
+	}
+
 	// Ask for contact
 	return b.askContact(c, u)
 }
