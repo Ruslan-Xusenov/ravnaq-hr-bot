@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/company/hrbot/internal/domain/application"
+	"github.com/company/hrbot/internal/domain/user"
 	"github.com/google/uuid"
 	tele "gopkg.in/telebot.v3"
 )
@@ -132,7 +133,6 @@ func (b *Bot) handleConfirmApplyCallback(c tele.Context) error {
 	}
 
 	u, _ := b.userRepo.GetByTelegramID(ctx, telegramID)
-	lang := *u.LanguageCode
 	res, _ := b.resumeRepo.GetCurrentByUserID(ctx, u.ID)
 
 	app := &application.Application{
