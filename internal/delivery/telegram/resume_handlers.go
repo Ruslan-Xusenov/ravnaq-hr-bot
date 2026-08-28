@@ -36,7 +36,13 @@ func (b *Bot) handleResumeMenu(c tele.Context) error {
 	}
 
 	// Show existing resume options
-	return c.Send("Sizning rezyumeyingiz mavjud. Tahrirlash tugmasini bosishingiz mumkin.") // TODO: use i18n
+	btnEdit := tele.Btn{Text: "📝 Tahrirlash", Data: "resume_edit"}
+	markup := &tele.ReplyMarkup{
+		InlineKeyboard: [][]tele.InlineButton{
+			{*btnEdit.Inline()},
+		},
+	}
+	return c.Send("Sizning rezyumeyingiz mavjud. Pastdagi tugma orqali tahrirlashingiz mumkin.", markup)
 }
 
 func (b *Bot) handleText(c tele.Context) error {
@@ -125,6 +131,12 @@ func (b *Bot) handleResumeCallback(c tele.Context) error {
 	u, err := b.userRepo.GetByTelegramID(ctx, telegramID)
 	if err != nil || u == nil {
 		return c.Send("User not found")
+	}
+
+	if data == "resume_edit" {
+		b.state.Set(ctx, telegramID, user.StateResumeFirstName)
+		c.Edit(c.Message().Text + "\n\nRezyumeni tahrirlash boshlandi.")
+		return c.Send(b.i18n.Get(*u.LanguageCode, "ask_first_name"), &tele.ReplyMarkup{RemoveKeyboard: true})
 	}
 
 	if data == "resume_cancel" {

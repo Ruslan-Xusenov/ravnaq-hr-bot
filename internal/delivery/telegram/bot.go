@@ -74,7 +74,7 @@ func (b *Bot) SetupHandlers() {
 		if data == "lang_uz" || data == "lang_ru" || data == "lang_en" {
 			return b.handleLanguageCallback(c)
 		}
-		if data == "resume_confirm" || data == "resume_cancel" {
+		if data == "resume_confirm" || data == "resume_cancel" || data == "resume_edit" {
 			return b.handleResumeCallback(c)
 		}
 		if len(data) > 6 && data[:6] == "apply_" {
