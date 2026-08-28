@@ -44,4 +44,5 @@ const (
 	AdminStateAddVacancySalary     = "admin_add_vacancy_salary"
 	AdminStateAddVacancyDesc       = "admin_add_vacancy_desc"
 	AdminStateBroadcastMessage     = "admin_broadcast_message"
+	AdminStateEditTextInput        = "admin_edit_text_input"
 )

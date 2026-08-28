@@ -46,7 +46,11 @@ func (b *Bot) handleProfileMenu(c tele.Context) error {
 }
 
 func (b *Bot) handleAbout(c tele.Context) error {
-	text := `🏢 <b>Biz haqimizda</b>
+	ctx := context.Background()
+	t, err := b.textRepo.Get(ctx, "about")
+	text := ""
+	if err != nil || t == nil {
+		text = `🏢 <b>Biz haqimizda</b>
 
 Ravnaq Group — ko’chmas mulk sohasida marketing va sotuv bo’yicha to’liq siklli hamkor. Kompaniya Uysotpro nomi ostida faoliyatini boshlab, qisqa vaqt ichida Samarqand, Buxoro, Termiz va Surxondaryo bozorlarida o’z o’rnini egalladi. Bugun 5 ta quruvchi bilan hamkorlikda 1000 dan ortiq xonadon sotildi. Biz uchun eng katta yutuq — hamkorlarimizning ishonchi va uzoq muddatli munosabatlarimizdir.
 
@@ -57,11 +61,18 @@ Bizning kuchli tomonlarimiz — bir tizimga bog’langan marketing va sotuv: pro
 Biz hamkorlarimiz bilan bitta qayiqdamiz: oldindan hech qanday to’lov talab qilinmaydi. Biz faqat uy sotilib, mablag’ hamkorimiz kassasiga tushganidan so’ng komissiya olamiz. Chunki natijaga ishongan hamkor riskni ham o’zi ko’taradi.
 
 Biz haqimizda ko’proq ma’lumotni saytimiz orqali bilib oling.`
+	} else {
+		text = t.TextContent
+	}
 	return c.Send(text, tele.ModeHTML)
 }
 
 func (b *Bot) handleFAQ(c tele.Context) error {
-	text := `❓ <b>Ko'p beriladigan savollar (FAQ)</b>
+	ctx := context.Background()
+	t, err := b.textRepo.Get(ctx, "faq")
+	text := ""
+	if err != nil || t == nil {
+		text = `❓ <b>Ko'p beriladigan savollar (FAQ)</b>
 
 <b>1. Rezyumeni qanday yarataman?</b>
 - Asosiy menyudan "📄 Rezyume" tugmasini bosing va bot so'ragan ma'lumotlarni kiriting.
@@ -71,11 +82,18 @@ func (b *Bot) handleFAQ(c tele.Context) error {
 
 <b>3. Tilni qanday o'zgartiraman?</b>
 - "⚙️ Sozlamalar" bo'limiga kiring va o'zingizga qulay tilni tanlang.`
+	} else {
+		text = t.TextContent
+	}
 	return c.Send(text, tele.ModeHTML)
 }
 
 func (b *Bot) handleContactUs(c tele.Context) error {
-	text := `📞 <b>Aloqa</b>
+	ctx := context.Background()
+	t, err := b.textRepo.Get(ctx, "contact")
+	text := ""
+	if err != nil || t == nil {
+		text = `📞 <b>Aloqa</b>
 
 Agar sizda savollar, takliflar yoki texnik muammolar bo'lsa, biz bilan quyidagi manzillar orqali bog'lanishingiz mumkin:
 
@@ -83,6 +101,9 @@ Agar sizda savollar, takliflar yoki texnik muammolar bo'lsa, biz bilan quyidagi 
 📧 Email: hr@example.com
 ☎️ Telefon: +998 90 123 45 67
 💬 Telegram: @hr_support`
+	} else {
+		text = t.TextContent
+	}
 	return c.Send(text, tele.ModeHTML)
 }
 

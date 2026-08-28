@@ -27,21 +27,24 @@ func (b *Bot) handleAdminMenu(c tele.Context) error {
 
 	b.state.Set(ctx, telegramID, user.AdminStateMainMenu)
 
+	return c.Send("🛠 Admin Paneliga xush kelibsiz. Nima qilamiz?", b.adminMenuMarkup())
+}
+
+func (b *Bot) adminMenuMarkup() *tele.ReplyMarkup {
 	btnNewVacancy := tele.ReplyButton{Text: "➕ Yangi ish o'rni"}
 	btnViewApps := tele.ReplyButton{Text: "📋 Arizalarni ko'rish"}
 	btnBroadcast := tele.ReplyButton{Text: "📢 Xabar yuborish"}
+	btnEditTexts := tele.ReplyButton{Text: "📝 Matnlarni tahrirlash"}
 	btnBack := tele.ReplyButton{Text: "🔙 Orqaga (Asosiy menyu)"}
 
-	markup := &tele.ReplyMarkup{
+	return &tele.ReplyMarkup{
 		ReplyKeyboard: [][]tele.ReplyButton{
 			{btnNewVacancy, btnViewApps},
-			{btnBroadcast},
+			{btnBroadcast, btnEditTexts},
 			{btnBack},
 		},
 		ResizeKeyboard: true,
 	}
-
-	return c.Send("🛠 Admin Paneliga xush kelibsiz. Nima qilamiz?", markup)
 }
 
 func (b *Bot) handleAdminText(c tele.Context, state string) error {
@@ -63,9 +66,24 @@ func (b *Bot) handleAdminText(c tele.Context, state string) error {
 			return b.handleAdminViewApplications(c)
 		case "📢 Xabar yuborish":
 			b.state.Set(ctx, telegramID, user.AdminStateBroadcastMessage)
-			return c.Send("Barcha foydalanuvchilarga yuboriladigan xabar matnini kiriting:", &tele.ReplyMarkup{RemoveKeyboard: true})
+			return c.Send("Barcha foydalanuvchilarga yuboriladigan xabarni kiriting (rasm/video/matn):", &tele.ReplyMarkup{RemoveKeyboard: true})
+		
+		case "📝 Matnlarni tahrirlash":
+			btnAbout := tele.Btn{Text: "🏢 Biz haqimizda", Data: "admin_edit_text_about"}
+			btnFaq := tele.Btn{Text: "❓ Ko'p beriladigan savollar", Data: "admin_edit_text_faq"}
+			btnContact := tele.Btn{Text: "📞 Aloqa", Data: "admin_edit_text_contact"}
+			markup := &tele.ReplyMarkup{
+				InlineKeyboard: [][]tele.InlineButton{
+					{*btnAbout.Inline()},
+					{*btnFaq.Inline()},
+					{*btnContact.Inline()},
+				},
+			}
+			return c.Send("Qaysi bo'lim matnini tahrirlamoqchisiz?", markup)
+
+		default:
+			return c.Send("Noma'lum buyruq.")
 		}
-		return nil
 	}
 
 	switch state {
@@ -128,13 +146,49 @@ func (b *Bot) handleAdminText(c tele.Context, state string) error {
 				count++
 			}
 		}
-		b.state.ClearData(ctx, telegramID)
+		b.state.Set(ctx, telegramID, user.AdminStateMainMenu)
 		u, _ := b.userRepo.GetByTelegramID(ctx, telegramID)
-		c.Send(fmt.Sprintf("Xabar %d ta foydalanuvchiga yuborildi! ✅", count))
-		return b.sendMainMenu(c, u)
+		return c.Send(fmt.Sprintf("Xabar %d ta foydalanuvchiga yuborildi.", count), b.adminMenuMarkup())
+	
+	case user.AdminStateEditTextInput:
+		sectionID, _ := b.state.GetData(ctx, telegramID, "admin_edit_text_id")
+		if sectionID != "" {
+			err := b.textRepo.Set(ctx, sectionID, text)
+			if err != nil {
+				return c.Send("Xatolik yuz berdi: " + err.Error())
+			}
+			b.state.Set(ctx, telegramID, user.AdminStateMainMenu)
+			return c.Send("✅ Matn muvaffaqiyatli saqlandi!", b.adminMenuMarkup())
+		}
+		return c.Send("Xatolik: Tahrirlash bo'limi aniqlanmadi.")
 	}
 
 	return nil
+}
+
+func (b *Bot) handleAdminEditTextCallback(c tele.Context) error {
+	ctx := context.Background()
+	telegramID := c.Sender().ID
+	data := c.Callback().Data
+	
+	// Ensure user is admin
+	isAdmin := false
+	for _, id := range b.adminIDs {
+		if id == telegramID {
+			isAdmin = true
+			break
+		}
+	}
+	if !isAdmin {
+		return c.Send("Siz admin emassiz.")
+	}
+
+	sectionID := data[len("admin_edit_text_"):]
+	b.state.SetData(ctx, telegramID, "admin_edit_text_id", sectionID)
+	b.state.Set(ctx, telegramID, user.AdminStateEditTextInput)
+	
+	c.Edit(c.Message().Text + "\n\nIltimos, ushbu bo'lim uchun yangi matnni kiriting (bu matn bot orqali barchaga ko'rinadi):")
+	return c.Respond()
 }
 
 func (b *Bot) handleAdminViewApplications(c tele.Context) error {

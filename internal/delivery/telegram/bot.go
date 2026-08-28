@@ -6,6 +6,7 @@ import (
 
 	"github.com/company/hrbot/internal/config"
 	"github.com/company/hrbot/internal/domain/application"
+	"github.com/company/hrbot/internal/domain/bottext"
 	"github.com/company/hrbot/internal/domain/resume"
 	"github.com/company/hrbot/internal/domain/user"
 	"github.com/company/hrbot/internal/domain/vacancy"
@@ -19,6 +20,7 @@ type Bot struct {
 	resumeRepo  resume.Repository
 	vacancyRepo vacancy.Repository
 	appRepo     application.Repository
+	textRepo    bottext.Repository
 	state       *StateManager
 	i18n        *i18n.Translator
 	adminIDs    []int64
@@ -30,6 +32,7 @@ func NewBot(
 	rr resume.Repository,
 	vr vacancy.Repository,
 	ar application.Repository,
+	tr bottext.Repository,
 	state *StateManager,
 	trans *i18n.Translator,
 ) (*Bot, error) {
@@ -49,6 +52,7 @@ func NewBot(
 		resumeRepo:  rr,
 		vacancyRepo: vr,
 		appRepo:     ar,
+		textRepo:    tr,
 		state:       state,
 		i18n:        trans,
 		adminIDs:    cfg.TelegramAdminIDs,
@@ -85,6 +89,9 @@ func (b *Bot) SetupHandlers() {
 		}
 		if len(data) > 17 && data[:17] == "new_resume_apply_" {
 			return b.handleNewResumeApplyCallback(c)
+		}
+		if len(data) > 16 && data[:16] == "admin_edit_text_" {
+			return b.handleAdminEditTextCallback(c)
 		}
 		return nil
 	})
