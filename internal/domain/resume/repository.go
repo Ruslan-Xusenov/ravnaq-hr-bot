@@ -25,8 +25,8 @@ func NewRepository(db *pgxpool.Pool) Repository {
 func (r *repository) GetCurrentByUserID(ctx context.Context, userID uuid.UUID) (*Resume, error) {
 	query := `
 		SELECT id, user_id, version, first_name, last_name, photo_file_id, 
-		       address_region, address_city, address_detail, expected_salary, salary_currency,
-		       education_text, skills_text, languages_text, portfolio_url, pdf_file_id,
+		       COALESCE(address_region, ''), COALESCE(address_city, ''), COALESCE(address_detail, ''), COALESCE(expected_salary, 0), COALESCE(salary_currency, ''),
+		       COALESCE(education_text, ''), COALESCE(skills_text, ''), COALESCE(languages_text, ''), COALESCE(portfolio_url, ''), pdf_file_id,
 		       consent_at, is_current, created_at, updated_at
 		FROM resumes
 		WHERE user_id = $1 AND is_current = true

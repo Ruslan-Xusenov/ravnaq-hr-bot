@@ -61,6 +61,12 @@ func (b *Bot) handleText(c tele.Context) error {
 			return b.handleVacanciesMenu(c)
 		case b.i18n.Get(lang, "menu_applications"):
 			return b.handleMyApplications(c)
+		case b.i18n.Get(lang, "menu_profile"),
+			b.i18n.Get(lang, "menu_about"),
+			b.i18n.Get(lang, "menu_faq"),
+			b.i18n.Get(lang, "menu_contact"),
+			b.i18n.Get(lang, "menu_settings"):
+			return c.Send("Ushbu bo'lim tez kunda ishga tushiriladi 🚀")
 		}
 		return nil
 	}
