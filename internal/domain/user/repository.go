@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -12,6 +13,7 @@ import (
 type Repository interface {
 	GetByTelegramID(ctx context.Context, telegramID int64) (*User, error)
 	GetAll(ctx context.Context) ([]User, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
 	Create(ctx context.Context, u *User) error
 	Update(ctx context.Context, u *User) error
 }
@@ -22,6 +24,27 @@ type repository struct {
 
 func NewRepository(db *pgxpool.Pool) Repository {
 	return &repository{db: db}
+}
+
+func (r *repository) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
+	query := `
+		SELECT id, telegram_id, telegram_username, telegram_first_name, telegram_last_name, 
+		       language_code, primary_phone, status, last_activity_at, created_at, updated_at
+		FROM users
+		WHERE id = $1 AND deleted_at IS NULL
+	`
+	var u User
+	err := r.db.QueryRow(ctx, query, id).Scan(
+		&u.ID, &u.TelegramID, &u.TelegramUsername, &u.TelegramFirstName, &u.TelegramLastName,
+		&u.LanguageCode, &u.PrimaryPhone, &u.Status, &u.LastActivityAt, &u.CreatedAt, &u.UpdatedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil // Not found
+		}
+		return nil, fmt.Errorf("failed to get user by id: %w", err)
+	}
+	return &u, nil
 }
 
 func (r *repository) GetByTelegramID(ctx context.Context, telegramID int64) (*User, error) {
