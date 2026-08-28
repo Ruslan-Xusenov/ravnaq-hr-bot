@@ -5,10 +5,8 @@ WORKDIR /app
 
 # Install dependencies
 COPY go.mod go.sum ./
-RUN go mod download
-
-# Copy source code
 COPY . .
+RUN go mod tidy
 
 # Build the application
 RUN CGO_ENABLED=0 GOOS=linux go build -o hrbot ./cmd/server
