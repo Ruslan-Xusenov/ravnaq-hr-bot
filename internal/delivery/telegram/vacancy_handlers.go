@@ -1,0 +1,142 @@
+package telegram
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+
+	"github.com/company/hrbot/internal/domain/application"
+	"github.com/google/uuid"
+	tele "gopkg.in/telebot.v3"
+)
+
+func (b *Bot) handleVacanciesMenu(c tele.Context) error {
+	ctx := context.Background()
+	telegramID := c.Sender().ID
+
+	u, err := b.userRepo.GetByTelegramID(ctx, telegramID)
+	if err != nil || u == nil {
+		return c.Send("Texnik xatolik")
+	}
+	lang := *u.LanguageCode
+
+	vacancies, err := b.vacancyRepo.GetActive(ctx, 5, 0) // Limit to 5 for now
+	if err != nil {
+		slog.Error("Failed to get vacancies", "error", err)
+		return c.Send("Texnik xatolik")
+	}
+
+	if len(vacancies) == 0 {
+		return c.Send(b.i18n.Get(lang, "no_vacancies"))
+	}
+
+	for _, v := range vacancies {
+		text := fmt.Sprintf("💼 <b>%s</b>\n\n📍 %s\n💰 %f %s\n\n📝 %s",
+			v.Title, *v.Location, *v.SalaryFrom, *v.SalaryCurrency, *v.Description)
+
+		btnApply := tele.Btn{Text: b.i18n.Get(lang, "btn_apply"), Data: "apply_" + v.ID.String()}
+		markup := &tele.ReplyMarkup{
+			InlineKeyboard: [][]tele.InlineButton{
+				{*btnApply.Inline()},
+			},
+		}
+
+		c.Send(text, markup, tele.ModeHTML)
+	}
+	return nil
+}
+
+func (b *Bot) handleApplyCallback(c tele.Context) error {
+	ctx := context.Background()
+	telegramID := c.Sender().ID
+	data := c.Callback().Data
+
+	// Extract vacancy ID from "apply_uuid"
+	vacancyIDStr := data[len("apply_"):]
+	vacancyID, err := uuid.Parse(vacancyIDStr)
+	if err != nil {
+		return c.Send("Xatolik")
+	}
+
+	u, _ := b.userRepo.GetByTelegramID(ctx, telegramID)
+	lang := *u.LanguageCode
+
+	// Check if user has a resume
+	res, err := b.resumeRepo.GetCurrentByUserID(ctx, u.ID)
+	if err != nil {
+		return c.Send("Texnik xatolik")
+	}
+	if res == nil {
+		c.Respond(&tele.CallbackResponse{Text: b.i18n.Get(lang, "err_no_resume"), ShowAlert: true})
+		return nil
+	}
+
+	// Check if already applied
+	hasApplied, err := b.appRepo.HasApplied(ctx, u.ID, vacancyID)
+	if err != nil {
+		return c.Send("Texnik xatolik")
+	}
+	if hasApplied {
+		c.Respond(&tele.CallbackResponse{Text: b.i18n.Get(lang, "err_already_applied"), ShowAlert: true})
+		return nil
+	}
+
+	// Create application
+	app := &application.Application{
+		UserID:    u.ID,
+		VacancyID: vacancyID,
+		ResumeID:  res.ID, // This creates the snapshot reference!
+	}
+
+	if err := b.appRepo.Create(ctx, app); err != nil {
+		slog.Error("Failed to apply", "error", err)
+		return c.Send("Texnik xatolik")
+	}
+
+	c.Edit(c.Message().Text + "\n\n✅ " + b.i18n.Get(lang, "applied_success"))
+	c.Respond()
+
+	// Notify admins
+	for _, adminID := range b.adminIDs {
+		adminChat := &tele.Chat{ID: adminID}
+		b.Client.Send(adminChat, fmt.Sprintf("🔔 Yangi ariza keldi!\n\nID: %s\nFoydalanuvchi: %s\nRezyume ID: %s", app.VacancyID.String(), u.TelegramFirstName, app.ResumeID.String()))
+	}
+
+	return nil
+}
+
+func (b *Bot) handleMyApplications(c tele.Context) error {
+	ctx := context.Background()
+	telegramID := c.Sender().ID
+
+	u, err := b.userRepo.GetByTelegramID(ctx, telegramID)
+	if err != nil || u == nil {
+		return c.Send("Texnik xatolik")
+	}
+	lang := *u.LanguageCode
+
+	apps, err := b.appRepo.GetByUserID(ctx, u.ID)
+	if err != nil {
+		slog.Error("Failed to get applications", "error", err)
+		return c.Send("Texnik xatolik")
+	}
+
+	if len(apps) == 0 {
+		return c.Send(b.i18n.Get(lang, "no_applications"))
+	}
+
+	for _, app := range apps {
+		// Just fetching the basic details for now (usually you'd join with vacancy to get title)
+		vac, _ := b.vacancyRepo.GetByID(ctx, app.VacancyID)
+		title := "Noma'lum"
+		if vac != nil {
+			title = vac.Title
+		}
+
+		text := fmt.Sprintf("💼 <b>%s</b>\n\n holat: %s\n vaqt: %s",
+			title, app.Status, app.SubmittedAt.Format("02.01.2006 15:04"))
+
+		c.Send(text, tele.ModeHTML)
+	}
+	return nil
+}

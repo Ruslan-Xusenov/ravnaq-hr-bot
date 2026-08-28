@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      GOMEMLIMIT: "250MiB"
+      GOGC: "80"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - hrbot-network
+
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hrbot
+      POSTGRES_PASSWORD: ae5c47c62904f1f561608df2
+      POSTGRES_DB: hrbot
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hrbot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hrbot-network
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    networks:
+      - hrbot-network
+
+  migrate:
+    image: golang:alpine
+    volumes:
+      - ./migrations:/migrations
+    command: >
+      sh -c "go install github.com/pressly/goose/v3/cmd/goose@latest &&
+             goose -dir /migrations postgres 'postgres://hrbot:ae5c47c62904f1f561608df2@db:5432/hrbot?sslmode=disable' up"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - hrbot-network
+
+volumes:
+  pgdata:
+  redisdata:
+
+networks:
+  hrbot-network:
+    driver: bridge

@@ -1,0 +1,10 @@
+.env
+.ssh_key
+.ssh_key.pub
+tmp_server
+.idea/
+.vscode/
+bin/
+build/
+*.exe
+*.out
