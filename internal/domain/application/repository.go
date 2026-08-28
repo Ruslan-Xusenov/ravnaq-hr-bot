@@ -14,6 +14,7 @@ type Repository interface {
 	Create(ctx context.Context, app *Application) error
 	GetByUserID(ctx context.Context, userID uuid.UUID) ([]Application, error)
 	GetAll(ctx context.Context, limit, offset int) ([]Application, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*Application, error)
 	UpdateStatus(ctx context.Context, id uuid.UUID, status string) error
 }
 
@@ -98,6 +99,23 @@ func (r *repository) GetAll(ctx context.Context, limit, offset int) ([]Applicati
 		apps = append(apps, a)
 	}
 	return apps, nil
+}
+
+func (r *repository) GetByID(ctx context.Context, id uuid.UUID) (*Application, error) {
+	query := `
+		SELECT id, user_id, vacancy_id, resume_id, status, submitted_at
+		FROM applications
+		WHERE id = $1
+	`
+	var a Application
+	err := r.db.QueryRow(ctx, query, id).Scan(&a.ID, &a.UserID, &a.VacancyID, &a.ResumeID, &a.Status, &a.SubmittedAt)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get application by ID: %w", err)
+	}
+	return &a, nil
 }
 
 func (r *repository) UpdateStatus(ctx context.Context, id uuid.UUID, status string) error {

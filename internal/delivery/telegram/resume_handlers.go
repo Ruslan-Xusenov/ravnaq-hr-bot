@@ -278,7 +278,14 @@ func (b *Bot) handleResumeCallback(c tele.Context) error {
 					if name == "" {
 						name = "Noma'lum"
 					}
-					b.Client.Send(adminChat, fmt.Sprintf("🔔 Yangi ariza keldi!\n\nID: %s\nFoydalanuvchi: %s\nRezyume ID: %s", app.VacancyID.String(), name, app.ResumeID.String()))
+					btnApprove := tele.Btn{Text: "✅ Tasdiqlash", Data: "admin_apprv_app_" + app.ID.String()}
+					btnReject := tele.Btn{Text: "❌ Rad etish", Data: "admin_rejct_app_" + app.ID.String()}
+					markup := &tele.ReplyMarkup{
+						InlineKeyboard: [][]tele.InlineButton{
+							{*btnApprove.Inline(), *btnReject.Inline()},
+						},
+					}
+					b.Client.Send(adminChat, fmt.Sprintf("🔔 Yangi ariza keldi!\n\nID: %s\nFoydalanuvchi: %s\nRezyume ID: %s", app.VacancyID.String(), name, app.ResumeID.String()), markup)
 				}
 				c.Send("✅ Arizangiz muvaffaqiyatli yuborildi!")
 			}

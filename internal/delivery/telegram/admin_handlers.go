@@ -7,6 +7,8 @@ import (
 
 	"github.com/company/hrbot/internal/domain/user"
 	"github.com/company/hrbot/internal/domain/vacancy"
+	"github.com/company/hrbot/internal/domain/application"
+	"github.com/google/uuid"
 	tele "gopkg.in/telebot.v3"
 )
 
@@ -238,12 +240,85 @@ func (b *Bot) handleAdminViewApplications(c tele.Context) error {
 		text := fmt.Sprintf("💼 Vakansiya: %s\n👤 Nomzod: %s\n💼 Tajriba: %s\n📍 Manzil: %s\n📞 Qo'shimcha telefon: %s\n📅 Vaqt: %s\nHolati: %s", 
 			title, candidate, experience, address, phones, app.SubmittedAt.Format("02-Jan-2006 15:04"), app.Status)
 		
+		markup := &tele.ReplyMarkup{}
+		if app.Status == application.StatusSubmitted {
+			btnApprove := tele.Btn{Text: "✅ Tasdiqlash", Data: "admin_apprv_app_" + app.ID.String()}
+			btnReject := tele.Btn{Text: "❌ Rad etish", Data: "admin_rejct_app_" + app.ID.String()}
+			markup.InlineKeyboard = [][]tele.InlineButton{
+				{*btnApprove.Inline(), *btnReject.Inline()},
+			}
+		}
+
 		if res != nil && res.PhotoFileID != nil && *res.PhotoFileID != "" {
 			photo := &tele.Photo{File: tele.File{FileID: *res.PhotoFileID}, Caption: text}
-			c.Send(photo)
+			c.Send(photo, markup)
 		} else {
-			c.Send(text)
+			c.Send(text, markup)
 		}
 	}
+	return nil
+}
+
+func (b *Bot) handleAdminApproveAppCallback(c tele.Context) error {
+	return b.processAppStatusChange(c, "admin_apprv_app_", application.StatusAccepted, "✅ Tasdiqlandi", "🎉 Tabriklaymiz! Arizangiz ma'qullandi. Tez orada siz bilan bog'lanamiz.")
+}
+
+func (b *Bot) handleAdminRejectAppCallback(c tele.Context) error {
+	return b.processAppStatusChange(c, "admin_rejct_app_", application.StatusRejected, "❌ Rad etildi", "Kechirasiz, sizning arizangiz rad etildi.")
+}
+
+func (b *Bot) processAppStatusChange(c tele.Context, prefix, newStatus, adminStatusText, userMsg string) error {
+	ctx := context.Background()
+	telegramID := c.Sender().ID
+	data := c.Callback().Data
+	
+	// Ensure user is admin
+	isAdmin := false
+	for _, id := range b.adminIDs {
+		if id == telegramID {
+			isAdmin = true
+			break
+		}
+	}
+	if !isAdmin {
+		return c.Send("Siz admin emassiz.")
+	}
+
+	appIDStr := data[len(prefix):]
+	appID, err := uuid.Parse(appIDStr)
+	if err != nil {
+		return c.Respond(&tele.CallbackResponse{Text: "Xatolik: Noto'g'ri ID", ShowAlert: true})
+	}
+
+	app, err := b.appRepo.GetByID(ctx, appID)
+	if err != nil || app == nil {
+		return c.Respond(&tele.CallbackResponse{Text: "Ariza topilmadi", ShowAlert: true})
+	}
+
+	if app.Status != application.StatusSubmitted {
+		return c.Respond(&tele.CallbackResponse{Text: "Bu ariza holati avval o'zgartirilgan", ShowAlert: true})
+	}
+
+	err = b.appRepo.UpdateStatus(ctx, appID, newStatus)
+	if err != nil {
+		return c.Respond(&tele.CallbackResponse{Text: "Xatolik yuz berdi", ShowAlert: true})
+	}
+
+	// Update Admin message
+	if c.Message().Caption != "" {
+		newCaption := strings.Replace(c.Message().Caption, "Holati: submitted", "Holati: " + adminStatusText, 1)
+		c.Edit(newCaption)
+	} else {
+		newText := strings.Replace(c.Message().Text, "Holati: submitted", "Holati: " + adminStatusText, 1)
+		c.Edit(newText)
+	}
+	c.Respond(&tele.CallbackResponse{Text: "Holat o'zgartirildi!"})
+
+	// Notify User
+	u, err := b.userRepo.GetByID(ctx, app.UserID)
+	if err == nil && u != nil {
+		b.Client.Send(&tele.User{ID: u.TelegramID}, userMsg)
+	}
+
 	return nil
 }

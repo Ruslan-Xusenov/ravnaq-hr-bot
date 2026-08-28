@@ -93,6 +93,12 @@ func (b *Bot) SetupHandlers() {
 		if len(data) > 16 && data[:16] == "admin_edit_text_" {
 			return b.handleAdminEditTextCallback(c)
 		}
+		if len(data) > 16 && data[:16] == "admin_apprv_app_" {
+			return b.handleAdminApproveAppCallback(c)
+		}
+		if len(data) > 16 && data[:16] == "admin_rejct_app_" {
+			return b.handleAdminRejectAppCallback(c)
+		}
 		return nil
 	})
 	b.Client.Handle(tele.OnContact, b.handleContact)
