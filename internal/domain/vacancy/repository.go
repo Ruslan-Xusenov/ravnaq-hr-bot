@@ -29,7 +29,7 @@ func NewRepository(db *pgxpool.Pool) Repository {
 func (r *repository) GetActive(ctx context.Context, limit, offset int) ([]Vacancy, error) {
 	query := `
 		SELECT id, title, slug, department, location, employment_type, schedule, 
-		       salary_from, salary_to, salary_currency, description, requirements, benefits,
+		       salary_from, salary_to, salary_currency, salary_text, description, requirements, benefits,
 		       status, published_at
 		FROM vacancies
 		WHERE status = $1
@@ -47,7 +47,7 @@ func (r *repository) GetActive(ctx context.Context, limit, offset int) ([]Vacanc
 		var v Vacancy
 		err := rows.Scan(
 			&v.ID, &v.Title, &v.Slug, &v.Department, &v.Location, &v.EmploymentType, &v.Schedule,
-			&v.SalaryFrom, &v.SalaryTo, &v.SalaryCurrency, &v.Description, &v.Requirements, &v.Benefits,
+			&v.SalaryFrom, &v.SalaryTo, &v.SalaryCurrency, &v.SalaryText, &v.Description, &v.Requirements, &v.Benefits,
 			&v.Status, &v.PublishedAt,
 		)
 		if err != nil {
@@ -62,7 +62,7 @@ func (r *repository) GetActive(ctx context.Context, limit, offset int) ([]Vacanc
 func (r *repository) GetByID(ctx context.Context, id uuid.UUID) (*Vacancy, error) {
 	query := `
 		SELECT id, title, slug, department, location, employment_type, schedule, 
-		       salary_from, salary_to, salary_currency, description, requirements, benefits,
+		       salary_from, salary_to, salary_currency, salary_text, description, requirements, benefits,
 		       status, published_at
 		FROM vacancies
 		WHERE id = $1
@@ -70,7 +70,7 @@ func (r *repository) GetByID(ctx context.Context, id uuid.UUID) (*Vacancy, error
 	var v Vacancy
 	err := r.db.QueryRow(ctx, query, id).Scan(
 		&v.ID, &v.Title, &v.Slug, &v.Department, &v.Location, &v.EmploymentType, &v.Schedule,
-		&v.SalaryFrom, &v.SalaryTo, &v.SalaryCurrency, &v.Description, &v.Requirements, &v.Benefits,
+		&v.SalaryFrom, &v.SalaryTo, &v.SalaryCurrency, &v.SalaryText, &v.Description, &v.Requirements, &v.Benefits,
 		&v.Status, &v.PublishedAt,
 	)
 	if err != nil {
@@ -85,7 +85,7 @@ func (r *repository) GetByID(ctx context.Context, id uuid.UUID) (*Vacancy, error
 func (r *repository) GetAll(ctx context.Context, limit, offset int) ([]Vacancy, error) {
 	query := `
 		SELECT id, title, slug, department, location, employment_type, schedule, 
-		       salary_from, salary_to, salary_currency, description, requirements, benefits,
+		       salary_from, salary_to, salary_currency, salary_text, description, requirements, benefits,
 		       status, published_at
 		FROM vacancies
 		ORDER BY created_at DESC
@@ -102,7 +102,7 @@ func (r *repository) GetAll(ctx context.Context, limit, offset int) ([]Vacancy, 
 		var v Vacancy
 		err := rows.Scan(
 			&v.ID, &v.Title, &v.Slug, &v.Department, &v.Location, &v.EmploymentType, &v.Schedule,
-			&v.SalaryFrom, &v.SalaryTo, &v.SalaryCurrency, &v.Description, &v.Requirements, &v.Benefits,
+			&v.SalaryFrom, &v.SalaryTo, &v.SalaryCurrency, &v.SalaryText, &v.Description, &v.Requirements, &v.Benefits,
 			&v.Status, &v.PublishedAt,
 		)
 		if err != nil {
@@ -116,13 +116,13 @@ func (r *repository) GetAll(ctx context.Context, limit, offset int) ([]Vacancy, 
 func (r *repository) Create(ctx context.Context, v *Vacancy) error {
 	query := `
 		INSERT INTO vacancies (title, slug, department, location, employment_type, schedule, 
-		       salary_from, salary_to, salary_currency, description, requirements, benefits, status)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		       salary_from, salary_to, salary_currency, salary_text, description, requirements, benefits, status)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 		RETURNING id, created_at, updated_at
 	`
 	err := r.db.QueryRow(ctx, query, 
 		v.Title, v.Slug, v.Department, v.Location, v.EmploymentType, v.Schedule,
-		v.SalaryFrom, v.SalaryTo, v.SalaryCurrency, v.Description, v.Requirements, v.Benefits, v.Status,
+		v.SalaryFrom, v.SalaryTo, v.SalaryCurrency, v.SalaryText, v.Description, v.Requirements, v.Benefits, v.Status,
 	).Scan(&v.ID, &v.CreatedAt, &v.UpdatedAt)
 	
 	if err != nil {
@@ -135,13 +135,13 @@ func (r *repository) Update(ctx context.Context, v *Vacancy) error {
 	query := `
 		UPDATE vacancies
 		SET title = $1, department = $2, location = $3, employment_type = $4, schedule = $5,
-		    salary_from = $6, salary_to = $7, salary_currency = $8, description = $9,
-		    requirements = $10, benefits = $11, status = $12, updated_at = NOW()
-		WHERE id = $13
+		    salary_from = $6, salary_to = $7, salary_currency = $8, salary_text = $9, description = $10,
+		    requirements = $11, benefits = $12, status = $13, updated_at = NOW()
+		WHERE id = $14
 	`
 	_, err := r.db.Exec(ctx, query,
 		v.Title, v.Department, v.Location, v.EmploymentType, v.Schedule,
-		v.SalaryFrom, v.SalaryTo, v.SalaryCurrency, v.Description,
+		v.SalaryFrom, v.SalaryTo, v.SalaryCurrency, v.SalaryText, v.Description,
 		v.Requirements, v.Benefits, v.Status, v.ID,
 	)
 	if err != nil {

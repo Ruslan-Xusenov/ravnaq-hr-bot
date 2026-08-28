@@ -25,6 +25,7 @@ type Vacancy struct {
 	SalaryFrom     *float64
 	SalaryTo       *float64
 	SalaryCurrency *string
+	SalaryText     *string
 	Description    *string
 	Requirements   *string
 	Benefits       *string

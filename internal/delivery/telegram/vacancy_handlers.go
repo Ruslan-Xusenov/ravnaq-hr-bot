@@ -31,8 +31,15 @@ func (b *Bot) handleVacanciesMenu(c tele.Context) error {
 	}
 
 	for _, v := range vacancies {
-		text := fmt.Sprintf("💼 <b>%s</b>\n\n📍 %s\n💰 %f %s\n\n📝 %s",
-			v.Title, *v.Location, *v.SalaryFrom, *v.SalaryCurrency, *v.Description)
+		salaryDisplay := "Kelishiladi"
+		if v.SalaryText != nil && *v.SalaryText != "" {
+			salaryDisplay = *v.SalaryText
+		} else if v.SalaryFrom != nil && *v.SalaryFrom > 0 {
+			salaryDisplay = fmt.Sprintf("%.0f %s", *v.SalaryFrom, *v.SalaryCurrency)
+		}
+
+		text := fmt.Sprintf("💼 <b>%s</b>\n\n📍 %s\n💰 %s\n\n📝 %s",
+			v.Title, *v.Location, salaryDisplay, *v.Description)
 
 		btnApply := tele.Btn{Text: b.i18n.Get(lang, "btn_apply"), Data: "apply_" + v.ID.String()}
 		markup := &tele.ReplyMarkup{
@@ -99,7 +106,17 @@ func (b *Bot) handleApplyCallback(c tele.Context) error {
 	// Notify admins
 	for _, adminID := range b.adminIDs {
 		adminChat := &tele.Chat{ID: adminID}
-		b.Client.Send(adminChat, fmt.Sprintf("🔔 Yangi ariza keldi!\n\nID: %s\nFoydalanuvchi: %s\nRezyume ID: %s", app.VacancyID.String(), u.TelegramFirstName, app.ResumeID.String()))
+		name := ""
+		if u.TelegramFirstName != nil {
+			name = *u.TelegramFirstName
+		}
+		if u.TelegramLastName != nil {
+			name += " " + *u.TelegramLastName
+		}
+		if name == "" {
+			name = "Noma'lum"
+		}
+		b.Client.Send(adminChat, fmt.Sprintf("🔔 Yangi ariza keldi!\n\nID: %s\nFoydalanuvchi: %s\nRezyume ID: %s", app.VacancyID.String(), name, app.ResumeID.String()))
 	}
 
 	return nil

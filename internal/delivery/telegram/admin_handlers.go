@@ -81,24 +81,20 @@ func (b *Bot) handleAdminText(c tele.Context, state string) error {
 		return c.Send("Taklif qilinayotgan maoshni raqamda kiriting (Masalan: 5000000 yoki kelishilgan):")
 	
 	case user.AdminStateAddVacancySalary:
-		salary, err := strconv.ParseFloat(text, 64)
-		if err != nil {
-			salary = 0 // if "kelishilgan" or text
-		}
-		b.state.SetData(ctx, telegramID, "vac_salary", fmt.Sprintf("%f", salary))
+		b.state.SetData(ctx, telegramID, "vac_salary", text)
 		b.state.Set(ctx, telegramID, user.AdminStateAddVacancyDesc)
 		return c.Send("Ish haqida to'liq ma'lumotni kiriting (Talablar, vazifalar va h.k):")
 	
 	case user.AdminStateAddVacancyDesc:
 		title, _ := b.state.GetData(ctx, telegramID, "vac_title")
 		loc, _ := b.state.GetData(ctx, telegramID, "vac_loc")
-		salaryStr, _ := b.state.GetData(ctx, telegramID, "vac_salary")
-		salary, _ := strconv.ParseFloat(salaryStr, 64)
+		salaryText, _ := b.state.GetData(ctx, telegramID, "vac_salary")
 
 		currency := "UZS"
 		dept := "General"
 		empType := "To'liq"
 		schedule := "Dushanba-Juma"
+		var salaryFrom *float64
 
 		v := &vacancy.Vacancy{
 			Title:          title,
@@ -107,8 +103,10 @@ func (b *Bot) handleAdminText(c tele.Context, state string) error {
 			Location:       &loc,
 			EmploymentType: &empType,
 			Schedule:       &schedule,
-			SalaryFrom:     &salary,
+			SalaryFrom:     salaryFrom,
+			SalaryTo:       nil,
 			SalaryCurrency: &currency,
+			SalaryText:     &salaryText,
 			Description:    &text,
 			Status:         vacancy.StatusPublished,
 		}

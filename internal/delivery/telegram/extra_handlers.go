@@ -17,9 +17,19 @@ func (b *Bot) handleProfileMenu(c tele.Context) error {
 		return c.Send("Texnik xatolik")
 	}
 
+	name := "Noma'lum"
+	if u.TelegramFirstName != nil {
+		name = *u.TelegramFirstName
+	}
+	if u.TelegramLastName != nil {
+		name += " " + *u.TelegramLastName
+	}
+
 	phone := "Kiritilmagan"
 	if u.PrimaryPhone != nil {
 		phone = *u.PrimaryPhone
+	} else if u.Phone != nil {
+		phone = *u.Phone
 	}
 
 	lang := "O'zbek"
@@ -32,7 +42,7 @@ func (b *Bot) handleProfileMenu(c tele.Context) error {
 	}
 
 	text := fmt.Sprintf("👤 <b>Mening profilim</b>\n\n🆔 ID: %d\n📝 Ism: %s\n📞 Telefon: %s\n🌐 Til: %s",
-		u.TelegramID, u.TelegramFirstName, phone, lang)
+		u.TelegramID, name, phone, lang)
 
 	return c.Send(text, tele.ModeHTML)
 }
