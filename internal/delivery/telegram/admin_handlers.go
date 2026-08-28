@@ -158,14 +158,12 @@ func (b *Bot) handleAdminViewApplications(c tele.Context) error {
 		}
 
 		candidate := "Noma'lum nomzod"
-		phone := ""
 		if res != nil {
 			candidate = res.FirstName + " " + res.LastName
-			phone = *res.Phone
 		}
 
-		text := fmt.Sprintf("💼 Vakansiya: %s\n👤 Nomzod: %s\n📞 Telefon: %s\n📅 Vaqt: %s\nHolati: %s", 
-			title, candidate, phone, app.SubmittedAt.Format("02-Jan-2006 15:04"), app.Status)
+		text := fmt.Sprintf("💼 Vakansiya: %s\n👤 Nomzod: %s\n📅 Vaqt: %s\nHolati: %s", 
+			title, candidate, app.SubmittedAt.Format("02-Jan-2006 15:04"), app.Status)
 		
 		c.Send(text)
 	}
