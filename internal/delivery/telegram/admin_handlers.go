@@ -96,14 +96,17 @@ func (b *Bot) handleAdminText(c tele.Context, state string) error {
 		salary, _ := strconv.ParseFloat(salaryStr, 64)
 
 		currency := "UZS"
+		dept := "General"
+		empType := "To'liq"
+		schedule := "Dushanba-Juma"
 
 		v := &vacancy.Vacancy{
 			Title:          title,
 			Slug:           strings.ToLower(strings.ReplaceAll(title, " ", "-")),
-			Department:     "General",
+			Department:     &dept,
 			Location:       &loc,
-			EmploymentType: "To'liq",
-			Schedule:       "Dushanba-Juma",
+			EmploymentType: &empType,
+			Schedule:       &schedule,
 			SalaryFrom:     &salary,
 			SalaryCurrency: &currency,
 			Description:    &text,

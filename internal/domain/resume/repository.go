@@ -10,6 +10,7 @@ import (
 )
 
 type Repository interface {
+	GetByID(ctx context.Context, id uuid.UUID) (*Resume, error)
 	GetCurrentByUserID(ctx context.Context, userID uuid.UUID) (*Resume, error)
 	Create(ctx context.Context, r *Resume) error
 }
@@ -20,6 +21,31 @@ type repository struct {
 
 func NewRepository(db *pgxpool.Pool) Repository {
 	return &repository{db: db}
+}
+
+func (r *repository) GetByID(ctx context.Context, id uuid.UUID) (*Resume, error) {
+	query := `
+		SELECT id, user_id, version, first_name, last_name, photo_file_id, 
+		       COALESCE(address_region, ''), COALESCE(address_city, ''), COALESCE(address_detail, ''), COALESCE(expected_salary, 0), COALESCE(salary_currency, ''),
+		       COALESCE(education_text, ''), COALESCE(skills_text, ''), COALESCE(languages_text, ''), COALESCE(portfolio_url, ''), pdf_file_id,
+		       consent_at, is_current, created_at, updated_at
+		FROM resumes
+		WHERE id = $1
+	`
+	var res Resume
+	err := r.db.QueryRow(ctx, query, id).Scan(
+		&res.ID, &res.UserID, &res.Version, &res.FirstName, &res.LastName, &res.PhotoFileID,
+		&res.AddressRegion, &res.AddressCity, &res.AddressDetail, &res.ExpectedSalary, &res.SalaryCurrency,
+		&res.EducationText, &res.SkillsText, &res.LanguagesText, &res.PortfolioURL, &res.PDFFileID,
+		&res.ConsentAt, &res.IsCurrent, &res.CreatedAt, &res.UpdatedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get resume by id: %w", err)
+	}
+	return &res, nil
 }
 
 func (r *repository) GetCurrentByUserID(ctx context.Context, userID uuid.UUID) (*Resume, error) {
