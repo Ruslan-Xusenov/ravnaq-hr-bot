@@ -80,6 +80,12 @@ func (b *Bot) SetupHandlers() {
 		if len(data) > 6 && data[:6] == "apply_" {
 			return b.handleApplyCallback(c)
 		}
+		if len(data) > 14 && data[:14] == "confirm_apply_" {
+			return b.handleConfirmApplyCallback(c)
+		}
+		if len(data) > 17 && data[:17] == "new_resume_apply_" {
+			return b.handleNewResumeApplyCallback(c)
+		}
 		return nil
 	})
 	b.Client.Handle(tele.OnContact, b.handleContact)

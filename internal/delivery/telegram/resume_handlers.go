@@ -7,8 +7,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/company/hrbot/internal/domain/application"
 	"github.com/company/hrbot/internal/domain/resume"
 	"github.com/company/hrbot/internal/domain/user"
+	"github.com/google/uuid"
 	tele "gopkg.in/telebot.v3"
 )
 
@@ -237,6 +239,8 @@ func (b *Bot) handleResumeCallback(c tele.Context) error {
 			ExtraPhone2:    phone2,
 		}
 
+		pendingVacancyID, _ := b.state.GetData(ctx, telegramID, "pending_apply_vacancy")
+
 		if err := b.resumeRepo.Create(ctx, res); err != nil {
 			slog.Error("Failed to save resume", "error", err)
 			return c.Send("Texnik xatolik")
@@ -250,6 +254,36 @@ func (b *Bot) handleResumeCallback(c tele.Context) error {
 		}
 		
 		c.Send("Rezyume saqlandi!", &tele.ReplyMarkup{RemoveKeyboard: true})
+
+		if pendingVacancyID != "" {
+			vacancyID, err := uuid.Parse(pendingVacancyID)
+			if err == nil {
+				app := &application.Application{
+					UserID:    u.ID,
+					VacancyID: vacancyID,
+					ResumeID:  res.ID,
+				}
+				b.appRepo.Create(ctx, app)
+				
+				// Notify admins
+				for _, adminID := range b.adminIDs {
+					adminChat := &tele.Chat{ID: adminID}
+					name := ""
+					if u.TelegramFirstName != nil {
+						name = *u.TelegramFirstName
+					}
+					if u.TelegramLastName != nil {
+						name += " " + *u.TelegramLastName
+					}
+					if name == "" {
+						name = "Noma'lum"
+					}
+					b.Client.Send(adminChat, fmt.Sprintf("🔔 Yangi ariza keldi!\n\nID: %s\nFoydalanuvchi: %s\nRezyume ID: %s", app.VacancyID.String(), name, app.ResumeID.String()))
+				}
+				c.Send("✅ Arizangiz muvaffaqiyatli yuborildi!")
+			}
+		}
+
 		return b.sendMainMenu(c, u)
 	}
 

@@ -88,11 +88,57 @@ func (b *Bot) handleApplyCallback(c tele.Context) error {
 		return nil
 	}
 
-	// Create application
+	phones := ""
+	if res.ExtraPhone1 != nil {
+		phones = *res.ExtraPhone1
+	}
+	if res.ExtraPhone2 != nil {
+		if phones != "" {
+			phones += ", "
+		}
+		phones += *res.ExtraPhone2
+	}
+	if phones == "" {
+		phones = "Yo'q"
+	}
+	preview := fmt.Sprintf("📋 SIZNING REZYUMEYINGIZ:\n\n👤 F.I.Sh: %s\n💼 Tajriba: %s\n💰 Maosh: %.0f %s\n📍 Manzil: %s\n📞 Qo'shimcha raqamlar: %s\n\nShu arizani yuborasizmi yoki qayta rezyume to'ldirasizmi?", 
+		res.FirstName, res.SkillsText, res.ExpectedSalary, res.SalaryCurrency, res.AddressRegion, phones)
+	
+	btnConfirm := tele.Btn{Text: "✅ Shu rezyumeni yuborish", Data: "confirm_apply_" + vacancyID.String()}
+	btnNew := tele.Btn{Text: "📝 Yangi rezyume to'ldirish", Data: "new_resume_apply_" + vacancyID.String()}
+	markup := &tele.ReplyMarkup{
+		InlineKeyboard: [][]tele.InlineButton{
+			{*btnConfirm.Inline()},
+			{*btnNew.Inline()},
+		},
+	}
+
+	c.Respond()
+	if res.PhotoFileID != nil && *res.PhotoFileID != "" {
+		photo := &tele.Photo{File: tele.File{FileID: *res.PhotoFileID}, Caption: preview}
+		return c.Send(photo, markup)
+	}
+	return c.Send(preview, markup)
+}
+
+func (b *Bot) handleConfirmApplyCallback(c tele.Context) error {
+	ctx := context.Background()
+	telegramID := c.Sender().ID
+	data := c.Callback().Data
+	vacancyIDStr := data[len("confirm_apply_"):]
+	vacancyID, err := uuid.Parse(vacancyIDStr)
+	if err != nil {
+		return c.Send("Xatolik")
+	}
+
+	u, _ := b.userRepo.GetByTelegramID(ctx, telegramID)
+	lang := *u.LanguageCode
+	res, _ := b.resumeRepo.GetCurrentByUserID(ctx, u.ID)
+
 	app := &application.Application{
 		UserID:    u.ID,
 		VacancyID: vacancyID,
-		ResumeID:  res.ID, // This creates the snapshot reference!
+		ResumeID:  res.ID,
 	}
 
 	if err := b.appRepo.Create(ctx, app); err != nil {
@@ -100,7 +146,10 @@ func (b *Bot) handleApplyCallback(c tele.Context) error {
 		return c.Send("Texnik xatolik")
 	}
 
-	c.Edit(c.Message().Text + "\n\n✅ " + b.i18n.Get(lang, "applied_success"))
+	c.Edit(c.Message().Caption + "\n\n✅ Arizangiz muvaffaqiyatli yuborildi!")
+	if c.Message().Text != "" {
+		c.Edit(c.Message().Text + "\n\n✅ Arizangiz muvaffaqiyatli yuborildi!")
+	}
 	c.Respond()
 
 	// Notify admins
@@ -120,6 +169,26 @@ func (b *Bot) handleApplyCallback(c tele.Context) error {
 	}
 
 	return nil
+}
+
+func (b *Bot) handleNewResumeApplyCallback(c tele.Context) error {
+	ctx := context.Background()
+	telegramID := c.Sender().ID
+	data := c.Callback().Data
+	vacancyIDStr := data[len("new_resume_apply_"):]
+
+	// Set pending vacancy apply in state
+	b.state.SetData(ctx, telegramID, "pending_apply_vacancy", vacancyIDStr)
+
+	// Start resume flow
+	b.state.Set(ctx, telegramID, user.StateResumeFullName)
+	c.Edit(c.Message().Caption + "\n\nYangi rezyume to'ldirish boshlandi.")
+	if c.Message().Text != "" {
+		c.Edit(c.Message().Text + "\n\nYangi rezyume to'ldirish boshlandi.")
+	}
+	c.Respond()
+
+	return c.Send("Rezyume yaratish uchun quyidagi ma'lumotlarni kiriting:\n\n1. Ism, familiya va sharifingizni to'liq kiriting:", &tele.ReplyMarkup{RemoveKeyboard: true})
 }
 
 func (b *Bot) handleMyApplications(c tele.Context) error {
