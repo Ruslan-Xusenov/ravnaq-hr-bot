@@ -12,7 +12,7 @@ type Resume struct {
 	Version        int
 	FirstName      string
 	LastName       string
-	PhotoFileID    *uuid.UUID
+	PhotoFileID    *string
 	AddressRegion  string
 	AddressCity    string
 	AddressDetail  string
@@ -22,6 +22,8 @@ type Resume struct {
 	SkillsText     string
 	LanguagesText  string
 	PortfolioURL   string
+	ExtraPhone1    *string
+	ExtraPhone2    *string
 	PDFFileID      *uuid.UUID
 	ConsentAt      time.Time
 	IsCurrent      bool

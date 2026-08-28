@@ -28,7 +28,7 @@ func (r *repository) GetByID(ctx context.Context, id uuid.UUID) (*Resume, error)
 		SELECT id, user_id, version, first_name, last_name, photo_file_id, 
 		       COALESCE(address_region, ''), COALESCE(address_city, ''), COALESCE(address_detail, ''), COALESCE(expected_salary, 0), COALESCE(salary_currency, ''),
 		       COALESCE(education_text, ''), COALESCE(skills_text, ''), COALESCE(languages_text, ''), COALESCE(portfolio_url, ''), pdf_file_id,
-		       consent_at, is_current, created_at, updated_at
+		       extra_phone_1, extra_phone_2, consent_at, is_current, created_at, updated_at
 		FROM resumes
 		WHERE id = $1
 	`
@@ -37,7 +37,7 @@ func (r *repository) GetByID(ctx context.Context, id uuid.UUID) (*Resume, error)
 		&res.ID, &res.UserID, &res.Version, &res.FirstName, &res.LastName, &res.PhotoFileID,
 		&res.AddressRegion, &res.AddressCity, &res.AddressDetail, &res.ExpectedSalary, &res.SalaryCurrency,
 		&res.EducationText, &res.SkillsText, &res.LanguagesText, &res.PortfolioURL, &res.PDFFileID,
-		&res.ConsentAt, &res.IsCurrent, &res.CreatedAt, &res.UpdatedAt,
+		&res.ExtraPhone1, &res.ExtraPhone2, &res.ConsentAt, &res.IsCurrent, &res.CreatedAt, &res.UpdatedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -53,7 +53,7 @@ func (r *repository) GetCurrentByUserID(ctx context.Context, userID uuid.UUID) (
 		SELECT id, user_id, version, first_name, last_name, photo_file_id, 
 		       COALESCE(address_region, ''), COALESCE(address_city, ''), COALESCE(address_detail, ''), COALESCE(expected_salary, 0), COALESCE(salary_currency, ''),
 		       COALESCE(education_text, ''), COALESCE(skills_text, ''), COALESCE(languages_text, ''), COALESCE(portfolio_url, ''), pdf_file_id,
-		       consent_at, is_current, created_at, updated_at
+		       extra_phone_1, extra_phone_2, consent_at, is_current, created_at, updated_at
 		FROM resumes
 		WHERE user_id = $1 AND is_current = true
 		LIMIT 1
@@ -63,7 +63,7 @@ func (r *repository) GetCurrentByUserID(ctx context.Context, userID uuid.UUID) (
 		&res.ID, &res.UserID, &res.Version, &res.FirstName, &res.LastName, &res.PhotoFileID,
 		&res.AddressRegion, &res.AddressCity, &res.AddressDetail, &res.ExpectedSalary, &res.SalaryCurrency,
 		&res.EducationText, &res.SkillsText, &res.LanguagesText, &res.PortfolioURL, &res.PDFFileID,
-		&res.ConsentAt, &res.IsCurrent, &res.CreatedAt, &res.UpdatedAt,
+		&res.ExtraPhone1, &res.ExtraPhone2, &res.ConsentAt, &res.IsCurrent, &res.CreatedAt, &res.UpdatedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -86,13 +86,13 @@ func (r *repository) Create(ctx context.Context, res *Resume) error {
 
 	query := `
 		INSERT INTO resumes (
-			user_id, version, first_name, last_name, address_region, expected_salary, salary_currency, is_current, consent_at
+			user_id, version, first_name, last_name, photo_file_id, address_region, expected_salary, salary_currency, skills_text, extra_phone_1, extra_phone_2, is_current, consent_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, NOW()
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW()
 		) RETURNING id, created_at, updated_at
 	`
 	err := r.db.QueryRow(ctx, query,
-		res.UserID, res.Version, res.FirstName, res.LastName, res.AddressRegion, res.ExpectedSalary, res.SalaryCurrency, true,
+		res.UserID, res.Version, res.FirstName, res.LastName, res.PhotoFileID, res.AddressRegion, res.ExpectedSalary, res.SalaryCurrency, res.SkillsText, res.ExtraPhone1, res.ExtraPhone2, true,
 	).Scan(&res.ID, &res.CreatedAt, &res.UpdatedAt)
 	
 	if err != nil {

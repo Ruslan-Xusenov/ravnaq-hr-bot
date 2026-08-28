@@ -29,10 +29,12 @@ const (
 	StateMainMenu         = "main_menu"
 
 	// Resume States
-	StateResumeFirstName  = "resume_first_name"
-	StateResumeLastName   = "resume_last_name"
-	StateResumeRegion     = "resume_region"
+	StateResumeFullName   = "resume_fullname"
+	StateResumePhoto      = "resume_photo"
+	StateResumeExperience = "resume_experience"
 	StateResumeSalary     = "resume_salary"
+	StateResumeAddress    = "resume_address"
+	StateResumePhones     = "resume_phones"
 	StateResumeConfirm    = "resume_confirm"
 
 	// Admin States

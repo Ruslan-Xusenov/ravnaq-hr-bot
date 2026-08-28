@@ -84,6 +84,7 @@ func (b *Bot) SetupHandlers() {
 	})
 	b.Client.Handle(tele.OnContact, b.handleContact)
 	b.Client.Handle(tele.OnText, b.handleText)
+	b.Client.Handle(tele.OnPhoto, b.handlePhoto)
 	
 	// Setup more handlers here
 }

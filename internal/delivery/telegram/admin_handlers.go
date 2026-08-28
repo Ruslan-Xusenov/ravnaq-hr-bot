@@ -158,14 +158,42 @@ func (b *Bot) handleAdminViewApplications(c tele.Context) error {
 		}
 
 		candidate := "Noma'lum nomzod"
+		experience := "Yo'q"
+		address := "Yo'q"
+		var p1, p2 string
 		if res != nil {
-			candidate = res.FirstName + " " + res.LastName
+			candidate = res.FirstName
+			if res.SkillsText != "" {
+				experience = res.SkillsText
+			}
+			if res.AddressRegion != "" {
+				address = res.AddressRegion
+			}
+			if res.ExtraPhone1 != nil {
+				p1 = *res.ExtraPhone1
+			}
+			if res.ExtraPhone2 != nil {
+				p2 = *res.ExtraPhone2
+			}
 		}
 
-		text := fmt.Sprintf("💼 Vakansiya: %s\n👤 Nomzod: %s\n📅 Vaqt: %s\nHolati: %s", 
-			title, candidate, app.SubmittedAt.Format("02-Jan-2006 15:04"), app.Status)
+		phones := p1
+		if p2 != "" {
+			phones += ", " + p2
+		}
+		if phones == "" {
+			phones = "Yo'q"
+		}
+
+		text := fmt.Sprintf("💼 Vakansiya: %s\n👤 Nomzod: %s\n💼 Tajriba: %s\n📍 Manzil: %s\n📞 Qo'shimcha telefon: %s\n📅 Vaqt: %s\nHolati: %s", 
+			title, candidate, experience, address, phones, app.SubmittedAt.Format("02-Jan-2006 15:04"), app.Status)
 		
-		c.Send(text)
+		if res != nil && res.PhotoFileID != nil && *res.PhotoFileID != "" {
+			photo := &tele.Photo{File: tele.FromFileID(*res.PhotoFileID), Caption: text}
+			c.Send(photo)
+		} else {
+			c.Send(text)
+		}
 	}
 	return nil
 }
