@@ -147,7 +147,6 @@ func (b *Bot) handleAdminText(c tele.Context, state string) error {
 			}
 		}
 		b.state.Set(ctx, telegramID, user.AdminStateMainMenu)
-		u, _ := b.userRepo.GetByTelegramID(ctx, telegramID)
 		return c.Send(fmt.Sprintf("Xabar %d ta foydalanuvchiga yuborildi.", count), b.adminMenuMarkup())
 	
 	case user.AdminStateEditTextInput:
