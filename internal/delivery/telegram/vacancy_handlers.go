@@ -8,6 +8,7 @@ import (
 	"github.com/company/hrbot/internal/domain/application"
 	"github.com/company/hrbot/internal/domain/user"
 	"github.com/company/hrbot/internal/domain/vacancy"
+	"strings"
 	"github.com/google/uuid"
 	tele "gopkg.in/telebot.v3"
 )
@@ -384,7 +385,7 @@ func (b *Bot) handleViewVacancyCallback(c tele.Context) error {
 	vIDStr := data[len("view_vac_"):]
 	vID, err := uuid.Parse(vIDStr)
 	if err != nil {
-		return c.Respond(&tele.CallbackResponse{Text: "Noto'g'ri vakansiya ID"})
+		slog.Info("UUID FAILED", "vIDStr", vIDStr, "data", data); return c.Respond(&tele.CallbackResponse{Text: "Xato ID: " + vIDStr, ShowAlert: true})
 	}
 
 	v, err := b.vacancyRepo.GetByID(ctx, vID)
@@ -506,10 +507,10 @@ func (b *Bot) buildAdminVacanciesListMarkup(vacancies []vacancy.Vacancy) *tele.R
 func (b *Bot) handleAdminToggleVacancyCallback(c tele.Context) error {
 	ctx := context.Background()
 	data := c.Callback().Data
-	vIDStr := data[len("admin_tog_vac_"):]
+	vIDStr := strings.TrimSpace(strings.Trim(data[len("admin_tog_vac_"):], "\x00\f"))
 	vID, err := uuid.Parse(vIDStr)
 	if err != nil {
-		return c.Respond(&tele.CallbackResponse{Text: "Noto'g'ri vakansiya ID"})
+		slog.Info("UUID FAILED", "vIDStr", vIDStr, "data", data); return c.Respond(&tele.CallbackResponse{Text: "Xato ID: " + vIDStr, ShowAlert: true})
 	}
 
 	v, err := b.vacancyRepo.GetByID(ctx, vID)
