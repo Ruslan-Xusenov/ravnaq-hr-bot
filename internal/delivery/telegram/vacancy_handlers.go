@@ -429,15 +429,104 @@ func (b *Bot) handleViewVacancyCallback(c tele.Context) error {
 		lang = *u.LanguageCode
 	}
 
-	btnApply := tele.Btn{Text: b.i18n.Get(lang, "btn_apply"), Data: "apply_" + v.ID.String()}
-	btnBack := tele.Btn{Text: "🔙 Orqaga", Data: "back_to_vacancies"}
-	
-	markup := &tele.ReplyMarkup{
-		InlineKeyboard: [][]tele.InlineButton{
-			{*btnApply.Inline()},
-			{*btnBack.Inline()},
-		},
+	isAdmin := false
+	for _, id := range b.adminIDs {
+		if id == telegramID {
+			isAdmin = true
+			break
+		}
+	}
+
+	var markup *tele.ReplyMarkup
+	if isAdmin {
+		var btnToggle tele.Btn
+		if v.Status == vacancy.StatusPublished {
+			btnToggle = tele.Btn{Text: "🔴 Deaktivatsiya qilish", Data: "admin_tog_vac_" + v.ID.String()}
+		} else {
+			btnToggle = tele.Btn{Text: "🟢 Aktivatsiya qilish", Data: "admin_tog_vac_" + v.ID.String()}
+		}
+		btnBack := tele.Btn{Text: "🔙 Orqaga", Data: "admin_bck_vac"}
+		markup = &tele.ReplyMarkup{
+			InlineKeyboard: [][]tele.InlineButton{
+				{*btnToggle.Inline()},
+				{*btnBack.Inline()},
+			},
+		}
+	} else {
+		btnApply := tele.Btn{Text: b.i18n.Get(lang, "btn_apply"), Data: "apply_" + v.ID.String()}
+		btnBack := tele.Btn{Text: "🔙 Orqaga", Data: "back_to_vacancies"}
+		markup = &tele.ReplyMarkup{
+			InlineKeyboard: [][]tele.InlineButton{
+				{*btnApply.Inline()},
+				{*btnBack.Inline()},
+			},
+		}
 	}
 
 	return c.Edit(text, markup, tele.ModeHTML)
+}
+
+func (b *Bot) handleAdminVacanciesMenu(c tele.Context) error {
+	ctx := context.Background()
+	vacancies, err := b.vacancyRepo.GetAll(ctx, 50, 0) // Fetch up to 50 for admin
+	if err != nil {
+		return c.Send("Xatolik yuz berdi")
+	}
+
+	if len(vacancies) == 0 {
+		return c.Send("Hozirda ish o'rinlari yo'q.")
+	}
+
+	markup := b.buildAdminVacanciesListMarkup(vacancies)
+	if c.Callback() != nil {
+		return c.Edit("Barcha ish o'rinlari:", markup)
+	}
+	return c.Send("Barcha ish o'rinlari:", markup)
+}
+
+func (b *Bot) handleAdminBackToVacanciesCallback(c tele.Context) error {
+	return b.handleAdminVacanciesMenu(c)
+}
+
+func (b *Bot) buildAdminVacanciesListMarkup(vacancies []vacancy.Vacancy) *tele.ReplyMarkup {
+	markup := &tele.ReplyMarkup{}
+	var rows []tele.Row
+	for _, v := range vacancies {
+		icon := "🔴"
+		if v.Status == vacancy.StatusPublished {
+			icon = "🟢"
+		}
+		btn := tele.Btn{Text: icon + " " + v.Title, Data: "view_vac_" + v.ID.String()}
+		rows = append(rows, markup.Row(btn))
+	}
+	return markup
+}
+
+func (b *Bot) handleAdminToggleVacancyCallback(c tele.Context) error {
+	ctx := context.Background()
+	data := c.Callback().Data
+	vIDStr := data[len("admin_tog_vac_"):]
+	vID, err := uuid.Parse(vIDStr)
+	if err != nil {
+		return c.Respond(&tele.CallbackResponse{Text: "Noto'g'ri vakansiya ID"})
+	}
+
+	v, err := b.vacancyRepo.GetByID(ctx, vID)
+	if err != nil || v == nil {
+		return c.Respond(&tele.CallbackResponse{Text: "Vakansiya topilmadi"})
+	}
+
+	if v.Status == vacancy.StatusPublished {
+		v.Status = vacancy.StatusPaused
+	} else {
+		v.Status = vacancy.StatusPublished
+	}
+
+	err = b.vacancyRepo.Update(ctx, v)
+	if err != nil {
+		return c.Respond(&tele.CallbackResponse{Text: "Xatolik yuz berdi"})
+	}
+
+	// Re-render the view
+	return b.handleViewVacancyCallback(c)
 }
