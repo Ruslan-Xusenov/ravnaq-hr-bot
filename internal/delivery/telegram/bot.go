@@ -106,8 +106,14 @@ func (b *Bot) SetupHandlers() {
 		if len(data) > 9 && data[:9] == "view_vac_" {
 			return b.handleViewVacancyCallback(c)
 		}
+		if len(data) > 9 && data[:9] == "view_app_" {
+			return b.handleViewApplicationCallback(c)
+		}
 		if data == "back_to_vacancies" {
 			return b.handleBackToVacanciesCallback(c)
+		}
+		if data == "back_to_apps" {
+			return b.handleBackToApplicationsCallback(c)
 		}
 		if len(data) > 16 && data[:16] == "admin_edit_text_" {
 			return b.handleAdminEditTextCallback(c)

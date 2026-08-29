@@ -268,29 +268,112 @@ func (b *Bot) handleMyApplications(c tele.Context) error {
 		return c.Send(b.i18n.Get(lang, "no_applications"))
 	}
 
+	markup := &tele.ReplyMarkup{}
+	var rows []tele.Row
 	for _, app := range apps {
-		// Just fetching the basic details for now (usually you'd join with vacancy to get title)
 		vac, _ := b.vacancyRepo.GetByID(ctx, app.VacancyID)
 		title := "Noma'lum"
 		if vac != nil {
 			title = vac.Title
 		}
 
-		statusText := app.Status
-		if app.Status == "submitted" {
-			statusText = "⏳ Ko'rib chiqilmoqda"
-		} else if app.Status == "rejected" {
-			statusText = "Ko'rib chiqildi"
+		statusIcon := "⏳"
+		if app.Status == "rejected" {
+			statusIcon = "❌"
 		} else if app.Status == "approved" {
-			statusText = "✅ Qabul qilingan"
+			statusIcon = "✅"
 		}
 
-		text := fmt.Sprintf("💼 <b>Vakansiya: %s</b>\n\n📊 Holati: %s\n🕒 Topshirilgan vaqt: %s",
-			title, statusText, app.SubmittedAt.Format("02.01.2006 15:04"))
-
-		c.Send(text, tele.ModeHTML)
+		btn := markup.Data(fmt.Sprintf("%s %s", statusIcon, title), "view_app_"+app.ID.String())
+		rows = append(rows, markup.Row(btn))
 	}
-	return nil
+	markup.Inline(rows...)
+
+	return c.Send("Sizning arizalaringiz quyidagilar. Batafsil ma'lumot uchun ustiga bosing:", markup)
+}
+
+func (b *Bot) handleViewApplicationCallback(c tele.Context) error {
+	ctx := context.Background()
+	data := c.Callback().Data
+	appIDStr := data[len("view_app_"):]
+	appID, err := uuid.Parse(appIDStr)
+	if err != nil {
+		return c.Respond(&tele.CallbackResponse{Text: "Xato ID", ShowAlert: true})
+	}
+
+	app, err := b.appRepo.GetByID(ctx, appID)
+	if err != nil || app == nil {
+		return c.Respond(&tele.CallbackResponse{Text: "Ariza topilmadi", ShowAlert: true})
+	}
+
+	vac, _ := b.vacancyRepo.GetByID(ctx, app.VacancyID)
+	title := "Noma'lum"
+	if vac != nil {
+		title = vac.Title
+	}
+
+	statusText := app.Status
+	if app.Status == "submitted" {
+		statusText = "⏳ Ko'rib chiqilmoqda"
+	} else if app.Status == "rejected" {
+		statusText = "Ko'rib chiqildi" // As user requested in screenshot
+	} else if app.Status == "approved" {
+		statusText = "✅ Qabul qilingan"
+	}
+
+	text := fmt.Sprintf("💼 <b>Vakansiya: %s</b>\n\n📊 Holati: %s\n🕒 Topshirilgan vaqt: %s",
+		title, statusText, app.SubmittedAt.Format("02.01.2006 15:04"))
+
+	markup := &tele.ReplyMarkup{}
+	backBtn := markup.Data("⬅️ Orqaga", "back_to_apps")
+	markup.Inline(markup.Row(backBtn))
+
+	c.Edit(text, tele.ModeHTML, markup)
+	return c.Respond()
+}
+
+func (b *Bot) handleBackToApplicationsCallback(c tele.Context) error {
+	ctx := context.Background()
+	telegramID := c.Sender().ID
+
+	u, err := b.userRepo.GetByTelegramID(ctx, telegramID)
+	if err != nil || u == nil {
+		return c.Respond(&tele.CallbackResponse{Text: "Profil topilmadi", ShowAlert: true})
+	}
+
+	apps, err := b.appRepo.GetByUserID(ctx, u.ID)
+	if err != nil {
+		return c.Respond(&tele.CallbackResponse{Text: "Xatolik", ShowAlert: true})
+	}
+
+	if len(apps) == 0 {
+		c.Edit("Sizda arizalar yo'q.")
+		return c.Respond()
+	}
+
+	markup := &tele.ReplyMarkup{}
+	var rows []tele.Row
+	for _, app := range apps {
+		vac, _ := b.vacancyRepo.GetByID(ctx, app.VacancyID)
+		title := "Noma'lum"
+		if vac != nil {
+			title = vac.Title
+		}
+
+		statusIcon := "⏳"
+		if app.Status == "rejected" {
+			statusIcon = "❌"
+		} else if app.Status == "approved" {
+			statusIcon = "✅"
+		}
+
+		btn := markup.Data(fmt.Sprintf("%s %s", statusIcon, title), "view_app_"+app.ID.String())
+		rows = append(rows, markup.Row(btn))
+	}
+	markup.Inline(rows...)
+
+	c.Edit("Sizning arizalaringiz quyidagilar. Batafsil ma'lumot uchun ustiga bosing:", markup)
+	return c.Respond()
 }
 
 func (b *Bot) handleViewVacancyCallback(c tele.Context) error {
