@@ -499,6 +499,7 @@ func (b *Bot) buildAdminVacanciesListMarkup(vacancies []vacancy.Vacancy) *tele.R
 		btn := tele.Btn{Text: icon + " " + v.Title, Data: "view_vac_" + v.ID.String()}
 		rows = append(rows, markup.Row(btn))
 	}
+	markup.Inline(rows...)
 	return markup
 }
 
