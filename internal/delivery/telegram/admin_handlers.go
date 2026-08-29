@@ -41,13 +41,15 @@ func (b *Bot) adminMenuMarkup() *tele.ReplyMarkup {
 	btnEditTexts := tele.ReplyButton{Text: "📝 Matnlarni tahrirlash"}
 	btnChannels := tele.ReplyButton{Text: "📢 Kanallarni sozlash"}
 	btnUsersCount := tele.ReplyButton{Text: "👥 Foydalanuvchilar soni"}
+	btnActiveVacancies := tele.ReplyButton{Text: "💼 Aktiv ish o'rinlari"}
 	btnBack := tele.ReplyButton{Text: "🔙 Orqaga (Asosiy menyu)"}
 
 	return &tele.ReplyMarkup{
 		ReplyKeyboard: [][]tele.ReplyButton{
-			{btnNewVacancy, btnViewApps},
+			{btnNewVacancy, btnActiveVacancies},
+			{btnViewApps, btnUsersCount},
 			{btnBroadcast, btnEditTexts},
-			{btnChannels, btnUsersCount},
+			{btnChannels},
 			{btnBack},
 		},
 		ResizeKeyboard: true,
@@ -78,6 +80,8 @@ func (b *Bot) handleAdminText(c tele.Context, state string) error {
 		case "➕ Yangi ish o'rni":
 			b.state.Set(ctx, telegramID, user.AdminStateAddVacancyTitle)
 			return c.Send("Yangi ish o'rni nomini kiriting (Masalan: Sotuvchi):", &tele.ReplyMarkup{RemoveKeyboard: true})
+		case "💼 Aktiv ish o'rinlari":
+			return b.handleVacanciesMenu(c)
 		case "📋 Arizalarni ko'rish":
 			return b.handleAdminViewApplications(c)
 		case "👥 Foydalanuvchilar soni":
