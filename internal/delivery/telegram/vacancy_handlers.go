@@ -284,7 +284,8 @@ func (b *Bot) handleMyApplications(c tele.Context) error {
 			statusIcon = "✅"
 		}
 
-		btn := markup.Data(fmt.Sprintf("%s %s", statusIcon, title), "view_app_"+app.ID.String())
+		btnText := fmt.Sprintf("💼 %s (%s)", title, statusIcon)
+		btn := tele.Btn{Text: btnText, Data: "view_app_" + app.ID.String()}
 		rows = append(rows, markup.Row(btn))
 	}
 	markup.Inline(rows...)
@@ -367,7 +368,8 @@ func (b *Bot) handleBackToApplicationsCallback(c tele.Context) error {
 			statusIcon = "✅"
 		}
 
-		btn := markup.Data(fmt.Sprintf("%s %s", statusIcon, title), "view_app_"+app.ID.String())
+		btnText := fmt.Sprintf("💼 %s (%s)", title, statusIcon)
+		btn := tele.Btn{Text: btnText, Data: "view_app_" + app.ID.String()}
 		rows = append(rows, markup.Row(btn))
 	}
 	markup.Inline(rows...)
