@@ -2,12 +2,15 @@ package bottext
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Repository interface {
-	Get(ctx context.Context, id string) (*BotText, error)
+	Get(ctx context.Context, id string) (string, error)
 	Set(ctx context.Context, id, textContent string) error
 }
 
@@ -19,22 +22,23 @@ func NewRepository(db *pgxpool.Pool) Repository {
 	return &repository{db: db}
 }
 
-func (r *repository) Get(ctx context.Context, id string) (*BotText, error) {
-	query := `SELECT id, text_content FROM bot_texts WHERE id = $1`
-	var t BotText
-	err := r.db.QueryRow(ctx, query, id).Scan(&t.ID, &t.TextContent)
+func (r *repository) Get(ctx context.Context, id string) (string, error) {
+	var textContent string
+	err := r.db.QueryRow(ctx, "SELECT text_content FROM bot_texts WHERE id = $1", id).Scan(&textContent)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+			return "", nil // Return empty string if not set yet
+		}
+		return "", err
 	}
-	return &t, nil
+	return textContent, nil
 }
 
 func (r *repository) Set(ctx context.Context, id, textContent string) error {
-	query := `
+	_, err := r.db.Exec(ctx, `
 		INSERT INTO bot_texts (id, text_content)
 		VALUES ($1, $2)
 		ON CONFLICT (id) DO UPDATE SET text_content = EXCLUDED.text_content
-	`
-	_, err := r.db.Exec(ctx, query, id, textContent)
+	`, id, textContent)
 	return err
 }

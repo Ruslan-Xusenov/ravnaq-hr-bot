@@ -14,7 +14,7 @@ func (b *Bot) handleProfileMenu(c tele.Context) error {
 
 	u, err := b.userRepo.GetByTelegramID(ctx, telegramID)
 	if err != nil || u == nil {
-		return c.Send("Texnik xatolik")
+		return c.Send("Bot ma'lumotlar bazasi yangilangani sababli profilingiz topilmadi. Iltimos, /start buyrug'ini yuboring.")
 	}
 
 	name := "Noma'lum"
@@ -25,7 +25,7 @@ func (b *Bot) handleProfileMenu(c tele.Context) error {
 		name += " " + *u.TelegramLastName
 	}
 
-	phone := "Kiritilmagan"
+	phone := "Noma'lum"
 	if u.PrimaryPhone != nil {
 		phone = *u.PrimaryPhone
 	}
@@ -39,17 +39,47 @@ func (b *Bot) handleProfileMenu(c tele.Context) error {
 		}
 	}
 
-	text := fmt.Sprintf("👤 <b>Mening profilim</b>\n\n🆔 ID: %d\n📝 Ism: %s\n📞 Telefon: %s\n🌐 Til: %s",
-		u.TelegramID, name, phone, lang)
+	res, err := b.resumeRepo.GetCurrentByUserID(ctx, u.ID)
+	if err != nil || res == nil {
+		text := fmt.Sprintf("👤 <b>Mening profilim</b>\n\n🆔 ID: %d\n📝 Ism: %s\n📞 Telefon: %s\n🌐 Til: %s\n\n<i>Siz hali rezyume yaratmagansiz.</i>",
+			u.TelegramID, name, phone, lang)
+		return c.Send(text, tele.ModeHTML)
+	}
+
+	p1, p2 := "", ""
+	if res.ExtraPhone1 != nil {
+		p1 = *res.ExtraPhone1
+	}
+	if res.ExtraPhone2 != nil {
+		p2 = *res.ExtraPhone2
+	}
+	phones := p1
+	if p2 != "" {
+		phones += ", " + p2
+	}
+	if phones == "" {
+		phones = "Yo'q"
+	}
+
+	text := fmt.Sprintf("👤 <b>Mening profilim</b>\n\n🆔 ID: %d\n📝 Tizimdagi Ism: %s\n📞 Asosiy telefon: %s\n🌐 Til: %s\n\n📄 <b>Rezyume ma'lumotlari:</b>\n👤 F.I.O: %s\n💼 Tajriba: %s\n📍 Manzil: %s\n📞 Qo'shimcha telefon: %s",
+		u.TelegramID, name, phone, lang, res.FirstName, res.SkillsText, res.AddressRegion, phones)
+
+	if res.ExpectedSalary > 0 {
+		text += fmt.Sprintf("\n💰 Kutilayotgan maosh: %.0f %s", res.ExpectedSalary, res.SalaryCurrency)
+	}
+
+	if res.PhotoFileID != nil && *res.PhotoFileID != "" {
+		photo := &tele.Photo{File: tele.File{FileID: *res.PhotoFileID}, Caption: text}
+		return c.Send(photo, tele.ModeHTML)
+	}
 
 	return c.Send(text, tele.ModeHTML)
 }
 
 func (b *Bot) handleAbout(c tele.Context) error {
 	ctx := context.Background()
-	t, err := b.textRepo.Get(ctx, "about")
-	text := ""
-	if err != nil || t == nil {
+	text, err := b.textRepo.Get(ctx, "about")
+	if err != nil || text == "" {
 		text = `🏢 <b>Biz haqimizda</b>
 
 Ravnaq Group — ko’chmas mulk sohasida marketing va sotuv bo’yicha to’liq siklli hamkor. Kompaniya Uysotpro nomi ostida faoliyatini boshlab, qisqa vaqt ichida Samarqand, Buxoro, Termiz va Surxondaryo bozorlarida o’z o’rnini egalladi. Bugun 5 ta quruvchi bilan hamkorlikda 1000 dan ortiq xonadon sotildi. Biz uchun eng katta yutuq — hamkorlarimizning ishonchi va uzoq muddatli munosabatlarimizdir.
@@ -61,17 +91,14 @@ Bizning kuchli tomonlarimiz — bir tizimga bog’langan marketing va sotuv: pro
 Biz hamkorlarimiz bilan bitta qayiqdamiz: oldindan hech qanday to’lov talab qilinmaydi. Biz faqat uy sotilib, mablag’ hamkorimiz kassasiga tushganidan so’ng komissiya olamiz. Chunki natijaga ishongan hamkor riskni ham o’zi ko’taradi.
 
 Biz haqimizda ko’proq ma’lumotni saytimiz orqali bilib oling.`
-	} else {
-		text = t.TextContent
 	}
 	return c.Send(text, tele.ModeHTML)
 }
 
 func (b *Bot) handleFAQ(c tele.Context) error {
 	ctx := context.Background()
-	t, err := b.textRepo.Get(ctx, "faq")
-	text := ""
-	if err != nil || t == nil {
+	text, err := b.textRepo.Get(ctx, "faq")
+	if err != nil || text == "" {
 		text = `❓ <b>Ko'p beriladigan savollar (FAQ)</b>
 
 <b>1. Rezyumeni qanday yarataman?</b>
@@ -82,17 +109,14 @@ func (b *Bot) handleFAQ(c tele.Context) error {
 
 <b>3. Tilni qanday o'zgartiraman?</b>
 - "⚙️ Sozlamalar" bo'limiga kiring va o'zingizga qulay tilni tanlang.`
-	} else {
-		text = t.TextContent
 	}
 	return c.Send(text, tele.ModeHTML)
 }
 
 func (b *Bot) handleContactUs(c tele.Context) error {
 	ctx := context.Background()
-	t, err := b.textRepo.Get(ctx, "contact")
-	text := ""
-	if err != nil || t == nil {
+	text, err := b.textRepo.Get(ctx, "contact")
+	if err != nil || text == "" {
 		text = `📞 <b>Aloqa</b>
 
 Agar sizda savollar, takliflar yoki texnik muammolar bo'lsa, biz bilan quyidagi manzillar orqali bog'lanishingiz mumkin:
@@ -101,8 +125,6 @@ Agar sizda savollar, takliflar yoki texnik muammolar bo'lsa, biz bilan quyidagi 
 📧 Email: hr@example.com
 ☎️ Telefon: +998 90 123 45 67
 💬 Telegram: @hr_support`
-	} else {
-		text = t.TextContent
 	}
 	return c.Send(text, tele.ModeHTML)
 }

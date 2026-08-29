@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/company/hrbot/internal/config"
@@ -10,6 +11,7 @@ import (
 	"github.com/company/hrbot/internal/domain/resume"
 	"github.com/company/hrbot/internal/domain/user"
 	"github.com/company/hrbot/internal/domain/vacancy"
+	"github.com/company/hrbot/internal/domain/channel"
 	"github.com/company/hrbot/pkg/i18n"
 	tele "gopkg.in/telebot.v3"
 )
@@ -21,6 +23,7 @@ type Bot struct {
 	vacancyRepo vacancy.Repository
 	appRepo     application.Repository
 	textRepo    bottext.Repository
+	channelRepo channel.Repository
 	state       *StateManager
 	i18n        *i18n.Translator
 	adminIDs    []int64
@@ -33,6 +36,7 @@ func NewBot(
 	vr vacancy.Repository,
 	ar application.Repository,
 	tr bottext.Repository,
+	cr channel.Repository,
 	state *StateManager,
 	trans *i18n.Translator,
 ) (*Bot, error) {
@@ -53,6 +57,7 @@ func NewBot(
 		vacancyRepo: vr,
 		appRepo:     ar,
 		textRepo:    tr,
+		channelRepo: cr,
 		state:       state,
 		i18n:        trans,
 		adminIDs:    cfg.TelegramAdminIDs,
@@ -70,11 +75,19 @@ func (b *Bot) Stop() {
 }
 
 func (b *Bot) SetupHandlers() {
+	b.Client.Use(b.subscriptionMiddleware())
+
 	b.Client.Handle("/start", b.handleStart)
 	
 	b.Client.Handle(tele.OnCallback, func(c tele.Context) error {
 		// Route callbacks
 		data := c.Callback().Data
+		if data == "check_sub" {
+			return b.handleCheckSubscriptionCallback(c)
+		}
+		if strings.HasPrefix(data, "admin_del_chan_") {
+			return b.handleAdminDeleteChannelCallback(c)
+		}
 		if data == "lang_uz" || data == "lang_ru" || data == "lang_en" {
 			return b.handleLanguageCallback(c)
 		}
@@ -89,6 +102,12 @@ func (b *Bot) SetupHandlers() {
 		}
 		if len(data) > 17 && data[:17] == "new_resume_apply_" {
 			return b.handleNewResumeApplyCallback(c)
+		}
+		if len(data) > 9 && data[:9] == "view_vac_" {
+			return b.handleViewVacancyCallback(c)
+		}
+		if data == "back_to_vacancies" {
+			return b.handleBackToVacanciesCallback(c)
 		}
 		if len(data) > 16 && data[:16] == "admin_edit_text_" {
 			return b.handleAdminEditTextCallback(c)

@@ -20,7 +20,7 @@ func (b *Bot) handleResumeMenu(c tele.Context) error {
 
 	u, err := b.userRepo.GetByTelegramID(ctx, telegramID)
 	if err != nil || u == nil {
-		return c.Send("Texnik xatolik")
+		return c.Send("Bot ma'lumotlar bazasi yangilangani sababli profilingiz topilmadi. Iltimos, /start buyrug'ini yuboring.")
 	}
 
 	// Check if resume exists
@@ -36,6 +36,53 @@ func (b *Bot) handleResumeMenu(c tele.Context) error {
 		return c.Send("Rezyume yaratish uchun quyidagi ma'lumotlarni kiriting:\n\n1. Ism, familiya va sharifingizni to'liq kiriting:", &tele.ReplyMarkup{RemoveKeyboard: true})
 	}
 
+	// Prepare resume text
+	name := "Noma'lum"
+	if u.TelegramFirstName != nil {
+		name = *u.TelegramFirstName
+	}
+	if u.TelegramLastName != nil {
+		name += " " + *u.TelegramLastName
+	}
+
+	phone := "Noma'lum"
+	if u.PrimaryPhone != nil {
+		phone = *u.PrimaryPhone
+	}
+
+	langText := "O'zbek"
+	if u.LanguageCode != nil {
+		if *u.LanguageCode == "ru" {
+			langText = "Русский"
+		} else if *u.LanguageCode == "en" {
+			langText = "English"
+		}
+	}
+
+	p1, p2 := "", ""
+	if res.ExtraPhone1 != nil {
+		p1 = *res.ExtraPhone1
+	}
+	if res.ExtraPhone2 != nil {
+		p2 = *res.ExtraPhone2
+	}
+	phones := p1
+	if p2 != "" {
+		phones += ", " + p2
+	}
+	if phones == "" {
+		phones = "Yo'q"
+	}
+
+	text := fmt.Sprintf("👤 <b>Mening profilim</b>\n\n🆔 ID: %d\n📝 Tizimdagi Ism: %s\n📞 Asosiy telefon: %s\n🌐 Til: %s\n\n📄 <b>Rezyume ma'lumotlari:</b>\n👤 F.I.O: %s\n💼 Tajriba: %s\n📍 Manzil: %s\n📞 Qo'shimcha telefon: %s",
+		u.TelegramID, name, phone, langText, res.FirstName, res.SkillsText, res.AddressRegion, phones)
+
+	if res.ExpectedSalary > 0 {
+		text += fmt.Sprintf("\n💰 Kutilayotgan maosh: %.0f %s", res.ExpectedSalary, res.SalaryCurrency)
+	}
+
+	text += "\n\n<i>Sizning rezyumeyingiz yuqoridagidek ko'rinadi. Pastdagi tugma orqali tahrirlashingiz mumkin.</i>"
+
 	// Show existing resume options
 	btnEdit := tele.Btn{Text: "📝 Tahrirlash", Data: "resume_edit"}
 	markup := &tele.ReplyMarkup{
@@ -43,7 +90,12 @@ func (b *Bot) handleResumeMenu(c tele.Context) error {
 			{*btnEdit.Inline()},
 		},
 	}
-	return c.Send("Sizning rezyumeyingiz mavjud. Pastdagi tugma orqali tahrirlashingiz mumkin.", markup)
+
+	if res.PhotoFileID != nil && *res.PhotoFileID != "" {
+		photo := &tele.Photo{File: tele.File{FileID: *res.PhotoFileID}, Caption: text}
+		return c.Send(photo, tele.ModeHTML, markup)
+	}
+	return c.Send(text, tele.ModeHTML, markup)
 }
 
 func (b *Bot) handlePhoto(c tele.Context) error {
@@ -285,7 +337,49 @@ func (b *Bot) handleResumeCallback(c tele.Context) error {
 							{*btnApprove.Inline(), *btnReject.Inline()},
 						},
 					}
-					b.Client.Send(adminChat, fmt.Sprintf("🔔 Yangi ariza keldi!\n\nID: %s\nFoydalanuvchi: %s\nRezyume ID: %s", app.VacancyID.String(), name, app.ResumeID.String()), markup)
+					v, _ := b.vacancyRepo.GetByID(ctx, app.VacancyID)
+					res, _ := b.resumeRepo.GetByID(ctx, app.ResumeID)
+					
+					title := "Noma'lum vakansiya"
+					if v != nil {
+						title = v.Title
+					}
+					
+					experience := "Yo'q"
+					address := "Yo'q"
+					var p1, p2 string
+					if res != nil {
+						if res.SkillsText != "" {
+							experience = res.SkillsText
+						}
+						if res.AddressRegion != "" {
+							address = res.AddressRegion
+						}
+						if res.ExtraPhone1 != nil {
+							p1 = *res.ExtraPhone1
+						}
+						if res.ExtraPhone2 != nil {
+							p2 = *res.ExtraPhone2
+						}
+					}
+
+					phones := p1
+					if p2 != "" {
+						phones += ", " + p2
+					}
+					if phones == "" {
+						phones = "Yo'q"
+					}
+
+					text := fmt.Sprintf("🔔 Yangi ariza keldi!\n\n💼 Vakansiya: %s\n👤 Nomzod: %s\n💼 Tajriba: %s\n📍 Manzil: %s\n📞 Qo'shimcha telefon: %s\n📅 Vaqt: %s\nHolati: %s", 
+						title, name, experience, address, phones, app.SubmittedAt.Format("02-Jan-2006 15:04"), app.Status)
+
+					if res != nil && res.PhotoFileID != nil && *res.PhotoFileID != "" {
+						photo := &tele.Photo{File: tele.File{FileID: *res.PhotoFileID}, Caption: text}
+						b.Client.Send(adminChat, photo, markup)
+					} else {
+						b.Client.Send(adminChat, text, markup)
+					}
 				}
 				c.Send("✅ Arizangiz muvaffaqiyatli yuborildi!")
 			}

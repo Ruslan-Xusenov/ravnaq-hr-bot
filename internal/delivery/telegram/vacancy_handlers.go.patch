@@ -1,0 +1,97 @@
+--- internal/delivery/telegram/vacancy_handlers.go
++++ internal/delivery/telegram/vacancy_handlers.go
+@@ -32,25 +32,32 @@
+ 		return c.Send(b.i18n.Get(lang, "no_vacancies"))
+ 	}
+ 
++	markup := b.buildVacanciesListMarkup(vacancies)
++	return c.Send("Faol vakansiyalar (Batafsil ma'lumot uchun tanlang):", markup)
++}
++
++func (b *Bot) buildVacanciesListMarkup(vacancies []vacancy.Vacancy) *tele.ReplyMarkup {
++	markup := &tele.ReplyMarkup{}
++	var rows []tele.Row
+ 	for _, v := range vacancies {
+-		salaryDisplay := "Kelishiladi"
+-		if v.SalaryText != nil && *v.SalaryText != "" {
+-			salaryDisplay = *v.SalaryText
+-		} else if v.SalaryFrom != nil && *v.SalaryFrom > 0 {
+-			salaryDisplay = fmt.Sprintf("%.0f %s", *v.SalaryFrom, *v.SalaryCurrency)
+-		}
++		btn := tele.Btn{Text: "💼 " + v.Title, Data: "view_vac_" + v.ID.String()}
++		rows = append(rows, markup.Row(btn))
++	}
++	markup.Inline(rows...)
++	return markup
++}
+ 
+-		text := fmt.Sprintf("💼 <b>%s</b>\n\n📍 %s\n💰 %s\n\n📝 %s",
+-			v.Title, *v.Location, salaryDisplay, *v.Description)
+-
+-		btnApply := tele.Btn{Text: b.i18n.Get(lang, "btn_apply"), Data: "apply_" + v.ID.String()}
+-		markup := &tele.ReplyMarkup{
+-			InlineKeyboard: [][]tele.InlineButton{
+-				{*btnApply.Inline()},
+-			},
+-		}
++func (b *Bot) handleBackToVacanciesCallback(c tele.Context) error {
++	ctx := context.Background()
++	vacancies, err := b.vacancyRepo.GetActive(ctx, 10, 0)
++	if err != nil {
++		return c.Respond(&tele.CallbackResponse{Text: "Xatolik yuz berdi", ShowAlert: true})
++	}
+ 
+-		c.Send(text, markup, tele.ModeHTML)
++	if len(vacancies) == 0 {
++		return c.Edit("Hozirda faol vakansiyalar yo'q.")
+ 	}
+-	return nil
++
++	markup := b.buildVacanciesListMarkup(vacancies)
++	return c.Edit("Faol vakansiyalar (Batafsil ma'lumot uchun tanlang):", markup)
+ }
+ 
++func (b *Bot) handleViewVacancyCallback(c tele.Context) error {
++	ctx := context.Background()
++	data := c.Callback().Data
++	vIDStr := data[len("view_vac_"):]
++	vID, err := uuid.Parse(vIDStr)
++	if err != nil {
++		return c.Respond(&tele.CallbackResponse{Text: "Noto'g'ri vakansiya ID"})
++	}
++
++	v, err := b.vacancyRepo.GetByID(ctx, vID)
++	if err != nil || v == nil {
++		return c.Respond(&tele.CallbackResponse{Text: "Vakansiya topilmadi"})
++	}
++
++	salaryDisplay := "Kelishiladi"
++	if v.SalaryText != nil && *v.SalaryText != "" {
++		salaryDisplay = *v.SalaryText
++	} else if v.SalaryFrom != nil && *v.SalaryFrom > 0 {
++		salaryDisplay = fmt.Sprintf("%.0f %s", *v.SalaryFrom, *v.SalaryCurrency)
++	}
++
++	text := fmt.Sprintf("💼 <b>%s</b>\n\n📍 %s\n💰 %s\n\n📝 %s",
++		v.Title, *v.Location, salaryDisplay, *v.Description)
++
++	// Get language
++	telegramID := c.Sender().ID
++	u, _ := b.userRepo.GetByTelegramID(ctx, telegramID)
++	lang := "uz"
++	if u != nil && u.LanguageCode != nil {
++		lang = *u.LanguageCode
++	}
++
++	btnApply := tele.Btn{Text: b.i18n.Get(lang, "btn_apply"), Data: "apply_" + v.ID.String()}
++	btnBack := tele.Btn{Text: "🔙 Orqaga", Data: "back_to_vacancies"}
++	
++	markup := &tele.ReplyMarkup{
++		InlineKeyboard: [][]tele.InlineButton{
++			{*btnApply.Inline()},
++			{*btnBack.Inline()},
++		},
++	}
++
++	return c.Edit(text, markup, tele.ModeHTML)
++}

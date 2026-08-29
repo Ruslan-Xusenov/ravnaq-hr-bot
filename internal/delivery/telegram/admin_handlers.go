@@ -3,11 +3,13 @@ package telegram
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/company/hrbot/internal/domain/user"
 	"github.com/company/hrbot/internal/domain/vacancy"
 	"github.com/company/hrbot/internal/domain/application"
+	"github.com/company/hrbot/internal/domain/channel"
 	"github.com/google/uuid"
 	tele "gopkg.in/telebot.v3"
 )
@@ -37,12 +39,14 @@ func (b *Bot) adminMenuMarkup() *tele.ReplyMarkup {
 	btnViewApps := tele.ReplyButton{Text: "📋 Arizalarni ko'rish"}
 	btnBroadcast := tele.ReplyButton{Text: "📢 Xabar yuborish"}
 	btnEditTexts := tele.ReplyButton{Text: "📝 Matnlarni tahrirlash"}
+	btnChannels := tele.ReplyButton{Text: "📢 Kanallarni sozlash"}
 	btnBack := tele.ReplyButton{Text: "🔙 Orqaga (Asosiy menyu)"}
 
 	return &tele.ReplyMarkup{
 		ReplyKeyboard: [][]tele.ReplyButton{
 			{btnNewVacancy, btnViewApps},
 			{btnBroadcast, btnEditTexts},
+			{btnChannels},
 			{btnBack},
 		},
 		ResizeKeyboard: true,
@@ -57,6 +61,15 @@ func (b *Bot) handleAdminText(c tele.Context, state string) error {
 	if text == "🔙 Orqaga (Asosiy menyu)" {
 		u, _ := b.userRepo.GetByTelegramID(ctx, telegramID)
 		return b.sendMainMenu(c, u)
+	}
+
+	if text == "📢 Kanallarni sozlash" {
+		return b.handleAdminChannels(c)
+	}
+
+	if text == "➕ Kanal qo'shish" {
+		b.state.Set(ctx, telegramID, user.AdminStateAddChannel)
+		return c.Send("Kanal ID yoki username ni kiriting (Masalan: -1001234567890 yoki @kanalnomi).\nEslatma: Botni avval ushbu kanalga admin qilishingiz shart!", &tele.ReplyMarkup{RemoveKeyboard: true})
 	}
 
 	if state == user.AdminStateMainMenu {
@@ -115,9 +128,12 @@ func (b *Bot) handleAdminText(c tele.Context, state string) error {
 		schedule := "Dushanba-Juma"
 		var salaryFrom *float64
 
+		baseSlug := strings.ToLower(strings.ReplaceAll(title, " ", "-"))
+		uniqueSlug := fmt.Sprintf("%s-%s", baseSlug, uuid.New().String()[:8])
+
 		v := &vacancy.Vacancy{
 			Title:          title,
-			Slug:           strings.ToLower(strings.ReplaceAll(title, " ", "-")),
+			Slug:           uniqueSlug,
 			Department:     &dept,
 			Location:       &loc,
 			EmploymentType: &empType,
@@ -162,6 +178,48 @@ func (b *Bot) handleAdminText(c tele.Context, state string) error {
 			return c.Send("✅ Matn muvaffaqiyatli saqlandi!", b.adminMenuMarkup())
 		}
 		return c.Send("Xatolik: Tahrirlash bo'limi aniqlanmadi.")
+		
+	case user.AdminStateAddChannel:
+		// Attempt to parse chat to verify bot is admin
+		var chat *tele.Chat
+		var err error
+		chatIDInt, parseErr := strconv.ParseInt(text, 10, 64)
+		if parseErr == nil {
+			chat, err = b.Client.ChatByID(chatIDInt)
+		} else {
+			chat, err = b.Client.ChatByUsername(text)
+		}
+
+		if err != nil {
+			return c.Send("Kanal topilmadi! Kanal ID si yoki username'ini to'g'ri kiritganingizga va bot u yerda admin ekanligiga ishonch hosil qiling. Boshqatdan kiriting:")
+		}
+		
+		b.state.SetData(ctx, telegramID, "admin_add_channel_id", fmt.Sprintf("%d", chat.ID))
+		b.state.SetData(ctx, telegramID, "admin_add_channel_title", chat.Title)
+		b.state.Set(ctx, telegramID, user.AdminStateAddChannelLink)
+		return c.Send(fmt.Sprintf("✅ Kanal topildi: <b>%s</b>\n\nEndi foydalanuvchilar obuna bo'lishi uchun kanal havolasini (URL) kiriting (Masalan: https://t.me/mychannel):", chat.Title), tele.ModeHTML)
+
+	case user.AdminStateAddChannelLink:
+		chatIDStr, _ := b.state.GetData(ctx, telegramID, "admin_add_channel_id")
+		title, _ := b.state.GetData(ctx, telegramID, "admin_add_channel_title")
+		
+		var chatID int64
+		fmt.Sscanf(chatIDStr, "%d", &chatID)
+
+		ch := &channel.Channel{
+			ChatID: chatID,
+			Title:  title,
+			URL:    text,
+		}
+
+		err := b.channelRepo.Create(ctx, ch)
+		if err != nil {
+			return c.Send("Kanalni saqlashda xatolik yuz berdi: " + err.Error())
+		}
+
+		b.state.Set(ctx, telegramID, user.AdminStateMainMenu)
+		c.Send("✅ Kanal muvaffaqiyatli qo'shildi!")
+		return b.handleAdminChannels(c)
 	}
 
 	return nil
@@ -264,7 +322,7 @@ func (b *Bot) handleAdminApproveAppCallback(c tele.Context) error {
 }
 
 func (b *Bot) handleAdminRejectAppCallback(c tele.Context) error {
-	return b.processAppStatusChange(c, "admin_rejct_app_", application.StatusRejected, "❌ Rad etildi", "Kechirasiz, sizning arizangiz rad etildi.")
+	return b.processAppStatusChange(c, "admin_rejct_app_", application.StatusRejected, "❌ Rad etildi", "")
 }
 
 func (b *Bot) processAppStatusChange(c tele.Context, prefix, newStatus, adminStatusText, userMsg string) error {
@@ -315,10 +373,76 @@ func (b *Bot) processAppStatusChange(c tele.Context, prefix, newStatus, adminSta
 	c.Respond(&tele.CallbackResponse{Text: "Holat o'zgartirildi!"})
 
 	// Notify User
-	u, err := b.userRepo.GetByID(ctx, app.UserID)
-	if err == nil && u != nil {
-		b.Client.Send(&tele.User{ID: u.TelegramID}, userMsg)
+	if userMsg != "" {
+		u, err := b.userRepo.GetByID(ctx, app.UserID)
+		if err == nil && u != nil {
+			b.Client.Send(&tele.User{ID: u.TelegramID}, userMsg)
+		}
 	}
 
 	return nil
+}
+
+func (b *Bot) handleAdminChannels(c tele.Context) error {
+	ctx := context.Background()
+	channels, err := b.channelRepo.GetAll(ctx)
+	if err != nil {
+		return c.Send("Kanallarni olishda xatolik yuz berdi.")
+	}
+
+	if len(channels) == 0 {
+		return c.Send("Hozircha majburiy kanallar qo'shilmagan.", b.adminChannelsMarkup())
+	}
+
+	text := "📋 Majburiy kanallar ro'yxati:\n\n"
+	markup := &tele.ReplyMarkup{}
+	var rows [][]tele.InlineButton
+	for i, ch := range channels {
+		text += fmt.Sprintf("%d. %s\n", i+1, ch.Title)
+		btnDelete := tele.Btn{Text: fmt.Sprintf("🗑 %d-ni o'chirish", i+1), Data: "admin_del_chan_" + ch.ID.String()}
+		rows = append(rows, []tele.InlineButton{*btnDelete.Inline()})
+	}
+	markup.InlineKeyboard = rows
+
+	c.Send(text, markup)
+	return c.Send("Kanal sozlamalari:", b.adminChannelsMarkup())
+}
+
+func (b *Bot) adminChannelsMarkup() *tele.ReplyMarkup {
+	btnAdd := tele.ReplyButton{Text: "➕ Kanal qo'shish"}
+	btnBack := tele.ReplyButton{Text: "🔙 Orqaga (Asosiy menyu)"}
+
+	return &tele.ReplyMarkup{
+		ReplyKeyboard: [][]tele.ReplyButton{
+			{btnAdd},
+			{btnBack},
+		},
+		ResizeKeyboard: true,
+	}
+}
+
+func (b *Bot) handleAdminDeleteChannelCallback(c tele.Context) error {
+	ctx := context.Background()
+	telegramID := c.Sender().ID
+	isAdmin := false
+	for _, id := range b.adminIDs {
+		if id == telegramID {
+			isAdmin = true
+			break
+		}
+	}
+	if !isAdmin {
+		return c.Respond(&tele.CallbackResponse{Text: "Siz admin emassiz", ShowAlert: true})
+	}
+
+	data := c.Callback().Data
+	chIDStr := data[len("admin_del_chan_"):]
+	chID, err := uuid.Parse(chIDStr)
+	if err == nil {
+		b.channelRepo.DeleteByID(ctx, chID)
+	}
+
+	c.Respond(&tele.CallbackResponse{Text: "Kanal o'chirildi!"})
+	c.Delete()
+	return b.handleAdminChannels(c)
 }

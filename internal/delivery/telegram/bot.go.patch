@@ -1,0 +1,15 @@
+--- internal/delivery/telegram/bot.go
++++ internal/delivery/telegram/bot.go
+@@ -104,6 +104,12 @@
+ 		if len(data) > 17 && data[:17] == "new_resume_apply_" {
+ 			return b.handleNewResumeApplyCallback(c)
+ 		}
++		if len(data) > 9 && data[:9] == "view_vac_" {
++			return b.handleViewVacancyCallback(c)
++		}
++		if data == "back_to_vacancies" {
++			return b.handleBackToVacanciesCallback(c)
++		}
+ 		if len(data) > 16 && data[:16] == "admin_edit_text_" {
+ 			return b.handleAdminEditTextCallback(c)
+ 		}

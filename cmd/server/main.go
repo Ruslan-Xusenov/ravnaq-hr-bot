@@ -19,6 +19,7 @@ import (
 	"github.com/company/hrbot/internal/domain/resume"
 	"github.com/company/hrbot/internal/domain/user"
 	"github.com/company/hrbot/internal/domain/vacancy"
+	"github.com/company/hrbot/internal/domain/channel"
 	"github.com/company/hrbot/internal/repository/postgres"
 	"github.com/company/hrbot/internal/worker"
 	"github.com/hibiken/asynq"
@@ -67,6 +68,7 @@ func main() {
 	vacancyRepo := vacancy.NewRepository(pgPool)
 	appRepo := application.NewRepository(pgPool)
 	textRepo := bottext.NewRepository(pgPool)
+	channelRepo := channel.NewRepository(pgPool)
 	stateManager := telegram.NewStateManager(redisClient)
 
 	// Init i18n
@@ -77,7 +79,7 @@ func main() {
 	}
 
 	// Setup Telegram Bot
-	botClient, err := telegram.NewBot(cfg, userRepo, resumeRepo, vacancyRepo, appRepo, textRepo, stateManager, translator)
+	botClient, err := telegram.NewBot(cfg, userRepo, resumeRepo, vacancyRepo, appRepo, textRepo, channelRepo, stateManager, translator)
 	if err != nil {
 		slog.Error("Failed to initialize telegram bot", "error", err)
 		os.Exit(1)

@@ -3,6 +3,7 @@ package vacancy
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -75,9 +76,10 @@ func (r *repository) GetByID(ctx context.Context, id uuid.UUID) (*Vacancy, error
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			return nil, nil // Not found
+			return nil, nil
 		}
-		return nil, fmt.Errorf("failed to get vacancy: %w", err)
+		slog.Error("GetByID scan error", "error", err, "vacancy_id", id)
+		return nil, fmt.Errorf("failed to get vacancy by ID: %w", err)
 	}
 	return &v, nil
 }
