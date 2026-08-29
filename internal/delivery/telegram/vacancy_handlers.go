@@ -380,13 +380,18 @@ func (b *Bot) handleBackToApplicationsCallback(c tele.Context) error {
 }
 
 func (b *Bot) handleViewVacancyCallback(c tele.Context) error {
-	ctx := context.Background()
 	data := c.Callback().Data
 	vIDStr := data[len("view_vac_"):]
 	vID, err := uuid.Parse(vIDStr)
 	if err != nil {
-		slog.Info("UUID FAILED", "vIDStr", vIDStr, "data", data); return c.Respond(&tele.CallbackResponse{Text: "Xato ID: " + vIDStr, ShowAlert: true})
+		slog.Info("UUID FAILED", "vIDStr", vIDStr, "data", data)
+		return c.Respond(&tele.CallbackResponse{Text: "Xato ID: " + vIDStr, ShowAlert: true})
 	}
+	return b.renderVacancyView(c, vID)
+}
+
+func (b *Bot) renderVacancyView(c tele.Context, vID uuid.UUID) error {
+	ctx := context.Background()
 
 	v, err := b.vacancyRepo.GetByID(ctx, vID)
 	if err != nil || v == nil {
@@ -530,5 +535,5 @@ func (b *Bot) handleAdminToggleVacancyCallback(c tele.Context) error {
 	}
 
 	// Re-render the view
-	return b.handleViewVacancyCallback(c)
+	return b.renderVacancyView(c, vID)
 }
