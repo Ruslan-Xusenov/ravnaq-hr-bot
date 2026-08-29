@@ -13,6 +13,7 @@ import (
 type Repository interface {
 	GetByTelegramID(ctx context.Context, telegramID int64) (*User, error)
 	GetAll(ctx context.Context) ([]User, error)
+	Count(ctx context.Context) (int, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
 	Create(ctx context.Context, u *User) error
 	Update(ctx context.Context, u *User) error
@@ -93,6 +94,16 @@ func (r *repository) GetAll(ctx context.Context) ([]User, error) {
 		users = append(users, u)
 	}
 	return users, nil
+}
+
+func (r *repository) Count(ctx context.Context) (int, error) {
+	query := `SELECT COUNT(*) FROM users WHERE deleted_at IS NULL`
+	var count int
+	err := r.db.QueryRow(ctx, query).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count users: %w", err)
+	}
+	return count, nil
 }
 
 func (r *repository) Create(ctx context.Context, u *User) error {

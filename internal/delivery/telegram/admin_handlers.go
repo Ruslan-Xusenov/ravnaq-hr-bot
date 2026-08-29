@@ -40,13 +40,14 @@ func (b *Bot) adminMenuMarkup() *tele.ReplyMarkup {
 	btnBroadcast := tele.ReplyButton{Text: "📢 Xabar yuborish"}
 	btnEditTexts := tele.ReplyButton{Text: "📝 Matnlarni tahrirlash"}
 	btnChannels := tele.ReplyButton{Text: "📢 Kanallarni sozlash"}
+	btnUsersCount := tele.ReplyButton{Text: "👥 Foydalanuvchilar soni"}
 	btnBack := tele.ReplyButton{Text: "🔙 Orqaga (Asosiy menyu)"}
 
 	return &tele.ReplyMarkup{
 		ReplyKeyboard: [][]tele.ReplyButton{
 			{btnNewVacancy, btnViewApps},
 			{btnBroadcast, btnEditTexts},
-			{btnChannels},
+			{btnChannels, btnUsersCount},
 			{btnBack},
 		},
 		ResizeKeyboard: true,
@@ -79,6 +80,12 @@ func (b *Bot) handleAdminText(c tele.Context, state string) error {
 			return c.Send("Yangi ish o'rni nomini kiriting (Masalan: Sotuvchi):", &tele.ReplyMarkup{RemoveKeyboard: true})
 		case "📋 Arizalarni ko'rish":
 			return b.handleAdminViewApplications(c)
+		case "👥 Foydalanuvchilar soni":
+			count, err := b.userRepo.Count(ctx)
+			if err != nil {
+				return c.Send("Xatolik yuz berdi. Iltimos keyinroq urinib ko'ring.")
+			}
+			return c.Send(fmt.Sprintf("📊 Jami foydalanuvchilar soni: %d ta", count))
 		case "📢 Xabar yuborish":
 			b.state.Set(ctx, telegramID, user.AdminStateBroadcastMessage)
 			return c.Send("Barcha foydalanuvchilarga yuboriladigan xabarni kiriting (rasm/video/matn):", &tele.ReplyMarkup{RemoveKeyboard: true})
