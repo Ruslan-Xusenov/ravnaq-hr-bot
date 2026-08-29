@@ -258,63 +258,117 @@ func (b *Bot) handleAdminViewApplications(c tele.Context) error {
 		return c.Send("Hozircha arizalar yo'q.")
 	}
 
+	var rows [][]tele.InlineButton
 	for _, app := range apps {
 		v, _ := b.vacancyRepo.GetByID(ctx, app.VacancyID)
-		res, _ := b.resumeRepo.GetByID(ctx, app.ResumeID)
-		
-		title := "Noma'lum vakansiya"
+		title := "Noma'lum"
 		if v != nil {
 			title = v.Title
 		}
-
-		candidate := "Noma'lum nomzod"
-		experience := "Yo'q"
-		address := "Yo'q"
-		var p1, p2 string
+		
+		res, _ := b.resumeRepo.GetByID(ctx, app.ResumeID)
+		candidate := "Noma'lum"
 		if res != nil {
 			candidate = res.FirstName
-			if res.SkillsText != "" {
-				experience = res.SkillsText
-			}
-			if res.AddressRegion != "" {
-				address = res.AddressRegion
-			}
-			if res.ExtraPhone1 != nil {
-				p1 = *res.ExtraPhone1
-			}
-			if res.ExtraPhone2 != nil {
-				p2 = *res.ExtraPhone2
-			}
 		}
 
-		phones := p1
-		if p2 != "" {
-			phones += ", " + p2
-		}
-		if phones == "" {
-			phones = "Yo'q"
-		}
-
-		text := fmt.Sprintf("💼 Vakansiya: %s\n👤 Nomzod: %s\n💼 Tajriba: %s\n📍 Manzil: %s\n📞 Qo'shimcha telefon: %s\n📅 Vaqt: %s\nHolati: %s", 
-			title, candidate, experience, address, phones, app.SubmittedAt.Format("02-Jan-2006 15:04"), app.Status)
-		
-		markup := &tele.ReplyMarkup{}
-		if app.Status == application.StatusSubmitted {
-			btnApprove := tele.Btn{Text: "✅ Tasdiqlash", Data: "admin_apprv_app_" + app.ID.String()}
-			btnReject := tele.Btn{Text: "❌ Rad etish", Data: "admin_rejct_app_" + app.ID.String()}
-			markup.InlineKeyboard = [][]tele.InlineButton{
-				{*btnApprove.Inline(), *btnReject.Inline()},
-			}
+		statusIcon := "⏳"
+		if app.Status == application.StatusRejected {
+			statusIcon = "❌"
+		} else if app.Status == application.StatusAccepted {
+			statusIcon = "✅"
 		}
 
-		if res != nil && res.PhotoFileID != nil && *res.PhotoFileID != "" {
-			photo := &tele.Photo{File: tele.File{FileID: *res.PhotoFileID}, Caption: text}
-			c.Send(photo, markup)
-		} else {
-			c.Send(text, markup)
+		btnText := fmt.Sprintf("💼 %s | %s (%s)", title, candidate, statusIcon)
+		btn := tele.Btn{Text: btnText, Data: "admin_vw_app_" + app.ID.String()}
+		rows = append(rows, []tele.InlineButton{*btn.Inline()})
+	}
+	
+	markup := &tele.ReplyMarkup{}
+	markup.InlineKeyboard = rows
+	return c.Send("Barcha arizalar quyidagilar. Batafsil ma'lumot uchun ustiga bosing:", markup)
+}
+
+func (b *Bot) handleAdminViewAppCallback(c tele.Context) error {
+	ctx := context.Background()
+	data := c.Callback().Data
+	appIDStr := data[13:]
+	appID, err := uuid.Parse(appIDStr)
+	if err != nil {
+		return c.Respond(&tele.CallbackResponse{Text: "Xatolik: Noto'g'ri ID", ShowAlert: true})
+	}
+
+	app, err := b.appRepo.GetByID(ctx, appID)
+	if err != nil || app == nil {
+		return c.Respond(&tele.CallbackResponse{Text: "Ariza topilmadi", ShowAlert: true})
+	}
+
+	v, _ := b.vacancyRepo.GetByID(ctx, app.VacancyID)
+	res, _ := b.resumeRepo.GetByID(ctx, app.ResumeID)
+	
+	title := "Noma'lum vakansiya"
+	if v != nil {
+		title = v.Title
+	}
+
+	candidate := "Noma'lum nomzod"
+	experience := "Yo'q"
+	address := "Yo'q"
+	var p1, p2 string
+	if res != nil {
+		candidate = res.FirstName
+		if res.SkillsText != "" {
+			experience = res.SkillsText
+		}
+		if res.AddressRegion != "" {
+			address = res.AddressRegion
+		}
+		if res.ExtraPhone1 != nil {
+			p1 = *res.ExtraPhone1
+		}
+		if res.ExtraPhone2 != nil {
+			p2 = *res.ExtraPhone2
 		}
 	}
-	return nil
+
+	phones := p1
+	if p2 != "" {
+		phones += ", " + p2
+	}
+	if phones == "" {
+		phones = "Yo'q"
+	}
+
+	text := fmt.Sprintf("💼 Vakansiya: %s\n👤 Nomzod: %s\n💼 Tajriba: %s\n📍 Manzil: %s\n📞 Qo'shimcha telefon: %s\n📅 Vaqt: %s\nHolati: %s", 
+		title, candidate, experience, address, phones, app.SubmittedAt.Format("02-Jan-2006 15:04"), app.Status)
+	
+	markup := &tele.ReplyMarkup{}
+	var rows [][]tele.InlineButton
+	if app.Status == application.StatusSubmitted {
+		btnApprove := tele.Btn{Text: "✅ Tasdiqlash", Data: "admin_apprv_app_" + app.ID.String()}
+		btnReject := tele.Btn{Text: "❌ Rad etish", Data: "admin_rejct_app_" + app.ID.String()}
+		rows = append(rows, []tele.InlineButton{*btnApprove.Inline(), *btnReject.Inline()})
+	}
+	
+	btnBack := tele.Btn{Text: "🔙 Orqaga", Data: "admin_bck_apps"}
+	rows = append(rows, []tele.InlineButton{*btnBack.Inline()})
+	markup.InlineKeyboard = rows
+
+	c.Bot().Delete(c.Message())
+
+	if res != nil && res.PhotoFileID != nil && *res.PhotoFileID != "" {
+		photo := &tele.Photo{File: tele.File{FileID: *res.PhotoFileID}, Caption: text}
+		c.Send(photo, markup)
+	} else {
+		c.Send(text, markup)
+	}
+	return c.Respond()
+}
+
+func (b *Bot) handleAdminBackToAppsCallback(c tele.Context) error {
+	c.Bot().Delete(c.Message())
+	b.handleAdminViewApplications(c)
+	return c.Respond()
 }
 
 func (b *Bot) handleAdminApproveAppCallback(c tele.Context) error {
@@ -363,12 +417,16 @@ func (b *Bot) processAppStatusChange(c tele.Context, prefix, newStatus, adminSta
 	}
 
 	// Update Admin message
+	newMarkup := &tele.ReplyMarkup{}
+	btnBack := tele.Btn{Text: "🔙 Orqaga", Data: "admin_bck_apps"}
+	newMarkup.InlineKeyboard = [][]tele.InlineButton{{*btnBack.Inline()}}
+
 	if c.Message().Caption != "" {
 		newCaption := strings.Replace(c.Message().Caption, "Holati: submitted", "Holati: " + adminStatusText, 1)
-		c.Edit(newCaption)
+		c.Edit(newCaption, newMarkup)
 	} else {
 		newText := strings.Replace(c.Message().Text, "Holati: submitted", "Holati: " + adminStatusText, 1)
-		c.Edit(newText)
+		c.Edit(newText, newMarkup)
 	}
 	c.Respond(&tele.CallbackResponse{Text: "Holat o'zgartirildi!"})
 

@@ -115,6 +115,12 @@ func (b *Bot) SetupHandlers() {
 		if data == "back_to_apps" {
 			return b.handleBackToApplicationsCallback(c)
 		}
+		if len(data) > 13 && data[:13] == "admin_vw_app_" {
+			return b.handleAdminViewAppCallback(c)
+		}
+		if data == "admin_bck_apps" {
+			return b.handleAdminBackToAppsCallback(c)
+		}
 		if len(data) > 16 && data[:16] == "admin_edit_text_" {
 			return b.handleAdminEditTextCallback(c)
 		}
